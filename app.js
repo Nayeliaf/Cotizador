@@ -1837,10 +1837,35 @@ if ("serviceWorker" in navigator) {
 }
 /* =========================================================
    PARCHE FINAL - LISTA DE PRECIOS MÓVIL
-   Pegar al FINAL de app.js
+   REEMPLAZAR TODO EL PARCHE ANTERIOR POR ESTE
 ========================================================= */
 
 (function () {
+  let lpRenderQueued = false;
+
+  function queueLPRefresh() {
+    if (lpRenderQueued) return;
+    lpRenderQueued = true;
+
+    requestAnimationFrame(() => {
+      lpRenderQueued = false;
+      renderLPTablePatched();
+    });
+  }
+
+  function updateLPTitleOnly(lpId) {
+    const lp = state.lp.find((x) => x.id === lpId);
+    if (!lp) return;
+
+    const title = document.querySelector(
+      `#lpMobileCards [data-lp-card-id="${lpId}"] .mobileRowTitle`
+    );
+
+    if (title) {
+      title.textContent = safe(lp.name) || "Nueva fila";
+    }
+  }
+
   function renderLPTablePatched() {
     const tbody = document.getElementById("lpTableBody");
     const mobile = document.getElementById("lpMobileCards");
@@ -1874,6 +1899,7 @@ if ("serviceWorker" in navigator) {
       const coberturaCost = calcLPPartCost(item.coberturaCBRCId, item.coberturaQty);
       const total = rellenoCost + coberturaCost;
 
+      /* ===== TABLA ESCRITORIO ===== */
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>
@@ -1885,6 +1911,7 @@ if ("serviceWorker" in navigator) {
             data-lp-field="name"
           />
         </td>
+
         <td>
           <input
             type="text"
@@ -1894,11 +1921,13 @@ if ("serviceWorker" in navigator) {
             data-lp-field="size"
           />
         </td>
+
         <td>
           <select data-lp-id="${item.id}" data-lp-field="rellenoCBRCId">
             ${getCBRCOptionsByType("relleno", item.rellenoCBRCId)}
           </select>
         </td>
+
         <td>
           <input
             type="number"
@@ -1909,12 +1938,15 @@ if ("serviceWorker" in navigator) {
             data-lp-field="rellenoQty"
           />
         </td>
+
         <td class="lpCellCost">${money(rellenoCost)}</td>
+
         <td>
           <select data-lp-id="${item.id}" data-lp-field="coberturaCBRCId">
             ${getCBRCOptionsByType("cobertura", item.coberturaCBRCId)}
           </select>
         </td>
+
         <td>
           <input
             type="number"
@@ -1925,17 +1957,28 @@ if ("serviceWorker" in navigator) {
             data-lp-field="coberturaQty"
           />
         </td>
+
         <td class="lpCellCost">${money(coberturaCost)}</td>
         <td class="lpCellCost">${money(total)}</td>
+
         <td>
-          <button class="lpDeleteBtn" type="button" data-delete-lp-id="${item.id}">✕</button>
+          <button
+            class="lpDeleteBtn"
+            type="button"
+            data-delete-lp-id="${item.id}"
+          >
+            ✕
+          </button>
         </td>
       `;
       tbody.appendChild(tr);
 
+      /* ===== TARJETAS MÓVIL ===== */
       if (mobile) {
         const card = document.createElement("article");
         card.className = "mobileRowCard";
+        card.setAttribute("data-lp-card-id", item.id);
+
         card.innerHTML = `
           <div class="mobileRowTitle">${safe(item.name) || "Nueva fila"}</div>
 
@@ -2017,11 +2060,16 @@ if ("serviceWorker" in navigator) {
           </div>
 
           <div class="mobileRowActions">
-            <button class="iconBtn iconBtnDanger" type="button" data-delete-lp-id="${item.id}">
+            <button
+              class="iconBtn iconBtnDanger"
+              type="button"
+              data-delete-lp-id="${item.id}"
+            >
               Eliminar
             </button>
           </div>
         `;
+
         mobile.appendChild(card);
       }
     });
@@ -2029,7 +2077,7 @@ if ("serviceWorker" in navigator) {
     renderLPSummary(filtered);
   }
 
-  function updateLPFieldPatched(lpId, field, value) {
+  function updateLPFieldPatched(lpId, field, value, options = {}) {
     const lp = state.lp.find((x) => x.id === lpId);
     if (!lp) return;
 
@@ -2041,19 +2089,15 @@ if ("serviceWorker" in navigator) {
 
     saveAll(true);
 
-    const mobileCard = document.querySelector(`#lpMobileCards [data-lp-id="${lpId}"][data-lp-field="name"]`);
-    const title = mobileCard?.closest(".mobileRowCard")?.querySelector(".mobileRowTitle");
-    if (title) {
-      title.textContent = safe(lp.name) || "Nueva fila";
-    }
-
-    const desktopRowName = document.querySelector(`#lpTableBody [data-lp-id="${lpId}"][data-lp-field="name"]`);
-    if (desktopRowName && desktopRowName !== document.activeElement) {
-      desktopRowName.value = safe(lp.name);
+    if (field === "name") {
+      updateLPTitleOnly(lpId);
     }
 
     renderLPSummary(getLPFilteredItems());
-    renderLPTablePatched();
+
+    if (options.refresh) {
+      queueLPRefresh();
+    }
   }
 
   function createLPPatched() {
@@ -2095,14 +2139,65 @@ if ("serviceWorker" in navigator) {
       mobile.addEventListener("input", function (e) {
         const field = e.target.closest("[data-lp-id][data-lp-field]");
         if (!field) return;
-        updateLPFieldPatched(field.dataset.lpId, field.dataset.lpField, field.value);
+
+        const lpId = field.dataset.lpId;
+        const lpField = field.dataset.lpField;
+
+        updateLPFieldPatched(lpId, lpField, field.value, { refresh: false });
       });
 
       mobile.addEventListener("change", function (e) {
         const field = e.target.closest("[data-lp-id][data-lp-field]");
         if (!field) return;
-        updateLPFieldPatched(field.dataset.lpId, field.dataset.lpField, field.value);
+
+        const lpId = field.dataset.lpId;
+        const lpField = field.dataset.lpField;
+
+        updateLPFieldPatched(lpId, lpField, field.value, { refresh: true });
       });
+
+      mobile.addEventListener("blur", function (e) {
+        const field = e.target.closest("[data-lp-id][data-lp-field]");
+        if (!field) return;
+
+        const lpId = field.dataset.lpId;
+        const lpField = field.dataset.lpField;
+
+        updateLPFieldPatched(lpId, lpField, field.value, { refresh: true });
+      }, true);
+    }
+
+    const desktop = document.getElementById("lpTableBody");
+    if (desktop) {
+      desktop.addEventListener("input", function (e) {
+        const field = e.target.closest("[data-lp-id][data-lp-field]");
+        if (!field) return;
+
+        const lpId = field.dataset.lpId;
+        const lpField = field.dataset.lpField;
+
+        updateLPFieldPatched(lpId, lpField, field.value, { refresh: false });
+      });
+
+      desktop.addEventListener("change", function (e) {
+        const field = e.target.closest("[data-lp-id][data-lp-field]");
+        if (!field) return;
+
+        const lpId = field.dataset.lpId;
+        const lpField = field.dataset.lpField;
+
+        updateLPFieldPatched(lpId, lpField, field.value, { refresh: true });
+      });
+
+      desktop.addEventListener("blur", function (e) {
+        const field = e.target.closest("[data-lp-id][data-lp-field]");
+        if (!field) return;
+
+        const lpId = field.dataset.lpId;
+        const lpField = field.dataset.lpField;
+
+        updateLPFieldPatched(lpId, lpField, field.value, { refresh: true });
+      }, true);
     }
 
     document.addEventListener("click", function (e) {
