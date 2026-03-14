@@ -204,7 +204,8 @@ function calcLPPartCost(cbrcId, qty) {
 }
 
 function calcLPTotal(lp) {
-  return calcLPPartCost(lp.rellenoCBRCId, lp.rellenoQty) + calcLPPartCost(lp.coberturaCBRCId, lp.coberturaQty);
+  return calcLPPartCost(lp.rellenoCBRCId, lp.rellenoQty) +
+         calcLPPartCost(lp.coberturaCBRCId, lp.coberturaQty);
 }
 
 function calcRecipeTotals(recipe) {
@@ -419,6 +420,10 @@ function importBackupFromFile(file) {
   reader.readAsText(file, "utf-8");
 }
 
+/* =========================
+   INGREDIENTES
+   ========================= */
+
 function renderIngredientList() {
   const list = $("#ingredientList");
   if (!list) return;
@@ -526,6 +531,10 @@ function removeIngredient() {
 
   requestDelete("ingredient", item.id, item.name);
 }
+
+/* =========================
+   CBRC
+   ========================= */
 
 function renderCBRCList() {
   const list = $("#cbrcList");
@@ -721,7 +730,7 @@ function duplicateCBRC() {
 }
 
 /* =========================
-   LISTA DE PRECIOS - TABLA EDITABLE
+   LISTA DE PRECIOS
    ========================= */
 
 function getCBRCOptionsByType(type, selectedId = "") {
@@ -752,283 +761,13 @@ function getLPFilteredItems() {
   });
 }
 
-function renderLPList() {
-  const list = $("#lpList");
-  if (!list) return;
-  list.innerHTML = "";
+function updateLPMobileTitle(lpId) {
+  const lp = state.lp.find((x) => x.id === lpId);
+  if (!lp) return;
 
-  const filtered = getLPFilteredItems();
-
-  if (!filtered.length) {
-    list.innerHTML = `<div class="emptyState">No hay filas en Lista de Precios.</div>`;
-    return;
-  }
-
-  filtered.forEach((item) => {
-    const total = calcLPTotal(item);
-    const card = document.createElement("article");
-    card.className = "entityCard";
-    card.innerHTML = `
-      <div class="entityCardTop">
-        <div>
-          <h3>${safe(item.name) || "Sin nombre"}</h3>
-          <div class="entityMeta">${safe(item.size) || "Sin tamaño"} · ${money(total)}</div>
-        </div>
-        <span class="tag">LP</span>
-      </div>
-    `;
-    list.appendChild(card);
-  });
+  const title = document.querySelector(`#lpMobileCards [data-lp-card-id="${lpId}"] .mobileRowTitle`);
+  if (title) title.textContent = safe(lp.name) || "Nueva fila";
 }
-
-function renderLPMobileCards() {
-  const container = $("#lpMobileCards");
-  if (!container) return;
-
-  container.innerHTML = "";
-  const filtered = getLPFilteredItems();
-
-  if (!filtered.length) {
-    container.innerHTML = `<div class="emptyState">No hay filas en Lista de Precios.</div>`;
-    return;
-  }
-
-  filtered.forEach((item) => {
-    const rellenoCost = calcLPPartCost(item.rellenoCBRCId, item.rellenoQty);
-    const coberturaCost = calcLPPartCost(item.coberturaCBRCId, item.coberturaQty);
-    const total = rellenoCost + coberturaCost;
-
-    const card = document.createElement("article");
-    card.className = "mobileRowCard";
-    card.innerHTML = `
-      <div class="mobileRowTitle">${safe(item.name) || "Nueva receta"}</div>
-
-      <div class="mobileRowMeta">
-        <div class="mobileRowMetaItem">
-          <span>Tamaño</span>
-          <input type="text" value="${safe(item.size)}" data-lp-id="${item.id}" data-lp-field="size" placeholder="Ej: 26 cm">
-        </div>
-
-        <div class="mobileRowMetaItem">
-          <span>Nombre</span>
-          <input type="text" value="${safe(item.name)}" data-lp-id="${item.id}" data-lp-field="name" placeholder="Nombre">
-        </div>
-
-        <div class="mobileRowMetaItem">
-          <span>Relleno</span>
-          <select data-lp-id="${item.id}" data-lp-field="rellenoCBRCId">
-            ${getCBRCOptionsByType("relleno", item.rellenoCBRCId)}
-          </select>
-        </div>
-
-        <div class="mobileRowMetaItem">
-          <span>Cantidad relleno</span>
-          <input type="number" min="0" step="0.01" value="${toNumber(item.rellenoQty)}" data-lp-id="${item.id}" data-lp-field="rellenoQty">
-        </div>
-
-        <div class="mobileRowMetaItem">
-          <span>Costo relleno</span>
-          ${money(rellenoCost)}
-        </div>
-
-        <div class="mobileRowMetaItem">
-          <span>Cobertura</span>
-          <select data-lp-id="${item.id}" data-lp-field="coberturaCBRCId">
-            ${getCBRCOptionsByType("cobertura", item.coberturaCBRCId)}
-          </select>
-        </div>
-
-        <div class="mobileRowMetaItem">
-          <span>Cantidad cobertura</span>
-          <input type="number" min="0" step="0.01" value="${toNumber(item.coberturaQty)}" data-lp-id="${item.id}" data-lp-field="coberturaQty">
-        </div>
-
-        <div class="mobileRowMetaItem">
-          <span>Costo cobertura</span>
-          ${money(coberturaCost)}
-        </div>
-
-        <div class="mobileRowMetaItem">
-          <span>Total</span>
-          ${money(total)}
-        </div>
-      </div>
-
-      <div class="mobileRowActions">
-        <button class="iconBtn iconBtnDanger" type="button" data-delete-lp-id="${item.id}">
-          Eliminar
-        </button>
-      </div>
-    `;
-    container.appendChild(card);
-  });
-}
-
-function renderLPTable() {
-  const tbody = $("#lpTableBody");
-  const mobile = $("#lpMobileCards");
-
-  if (!tbody) return;
-
-  tbody.innerHTML = "";
-  if (mobile) mobile.innerHTML = "";
-
-  const filtered = getLPFilteredItems();
-
-  if (!filtered.length) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="10">
-          <div class="emptyState">No hay filas en Lista de Precios.</div>
-        </td>
-      </tr>
-    `;
-
-    if (mobile) {
-      mobile.innerHTML = `
-        <div class="emptyState">No hay filas en Lista de Precios.</div>
-      `;
-    }
-
-    renderLPSummary(filtered);
-    return;
-  }
-
-  filtered.forEach((item) => {
-
-    const rellenoCost = calcLPPartCost(item.rellenoCBRCId, item.rellenoQty);
-    const coberturaCost = calcLPPartCost(item.coberturaCBRCId, item.coberturaQty);
-    const total = rellenoCost + coberturaCost;
-
-    /* ===== TABLA ESCRITORIO ===== */
-
-    const tr = document.createElement("tr");
-
-    tr.innerHTML = `
-      <td>
-        <input type="text" value="${safe(item.name)}"
-        data-lp-id="${item.id}" data-lp-field="name">
-      </td>
-
-      <td>
-        <input type="text" value="${safe(item.size)}"
-        data-lp-id="${item.id}" data-lp-field="size">
-      </td>
-
-      <td>
-        <select data-lp-id="${item.id}" data-lp-field="rellenoCBRCId">
-          ${getCBRCOptionsByType("relleno", item.rellenoCBRCId)}
-        </select>
-      </td>
-
-      <td>
-        <input type="number" min="0" step="0.01"
-        value="${toNumber(item.rellenoQty)}"
-        data-lp-id="${item.id}" data-lp-field="rellenoQty">
-      </td>
-
-      <td class="lpCellCost">${money(rellenoCost)}</td>
-
-      <td>
-        <select data-lp-id="${item.id}" data-lp-field="coberturaCBRCId">
-          ${getCBRCOptionsByType("cobertura", item.coberturaCBRCId)}
-        </select>
-      </td>
-
-      <td>
-        <input type="number" min="0" step="0.01"
-        value="${toNumber(item.coberturaQty)}"
-        data-lp-id="${item.id}" data-lp-field="coberturaQty">
-      </td>
-
-      <td class="lpCellCost">${money(coberturaCost)}</td>
-
-      <td class="lpCellCost">${money(total)}</td>
-
-      <td>
-        <button class="lpDeleteBtn"
-        data-delete-lp-id="${item.id}">✕</button>
-      </td>
-    `;
-
-    tbody.appendChild(tr);
-
-    /* ===== TARJETAS MOVIL ===== */
-
-    if (mobile) {
-
-      const card = document.createElement("article");
-      card.className = "mobileRowCard";
-
-      card.innerHTML = `
-
-      <div class="mobileRowTitle">${safe(item.name) || "Nueva fila"}</div>
-
-      <div class="mobileRowMeta">
-
-        <div class="mobileRowMetaItem">
-          <span>Tamaño</span>
-          <input type="text"
-          value="${safe(item.size)}"
-          data-lp-id="${item.id}"
-          data-lp-field="size">
-        </div>
-
-        <div class="mobileRowMetaItem">
-          <span>Relleno</span>
-          <select data-lp-id="${item.id}" data-lp-field="rellenoCBRCId">
-            ${getCBRCOptionsByType("relleno", item.rellenoCBRCId)}
-          </select>
-        </div>
-
-        <div class="mobileRowMetaItem">
-          <span>Cant. relleno</span>
-          <input type="number"
-          value="${toNumber(item.rellenoQty)}"
-          data-lp-id="${item.id}"
-          data-lp-field="rellenoQty">
-        </div>
-
-        <div class="mobileRowMetaItem">
-          <span>Cobertura</span>
-          <select data-lp-id="${item.id}" data-lp-field="coberturaCBRCId">
-            ${getCBRCOptionsByType("cobertura", item.coberturaCBRCId)}
-          </select>
-        </div>
-
-        <div class="mobileRowMetaItem">
-          <span>Cant. cobertura</span>
-          <input type="number"
-          value="${toNumber(item.coberturaQty)}"
-          data-lp-id="${item.id}"
-          data-lp-field="coberturaQty">
-        </div>
-
-        <div class="mobileRowMetaItem">
-          <span>Total</span>
-          <b>${money(total)}</b>
-        </div>
-
-      </div>
-
-      <div class="mobileRowActions">
-        <button class="iconBtn iconBtnDanger"
-        data-delete-lp-id="${item.id}">
-        Eliminar
-        </button>
-      </div>
-      `;
-
-      mobile.appendChild(card);
-    }
-
-  });
-
-  renderLPSummary(filtered);
-}
-
-  renderLPList();
-  renderLPMobileCards();
 
 function renderLPSummary(items = state.lp) {
   const countEl = $("#lpSummaryCount");
@@ -1056,6 +795,205 @@ function renderLPSummary(items = state.lp) {
   if ($("#lpCostTotal")) $("#lpCostTotal").textContent = money(total);
 }
 
+function renderLPTable() {
+  const tbody = $("#lpTableBody");
+  const mobile = $("#lpMobileCards");
+
+  if (!tbody) return;
+
+  tbody.innerHTML = "";
+  if (mobile) mobile.innerHTML = "";
+
+  const filtered = getLPFilteredItems();
+
+  if (!filtered.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="10">
+          <div class="emptyState">No hay filas en Lista de Precios.</div>
+        </td>
+      </tr>
+    `;
+
+    if (mobile) {
+      mobile.innerHTML = `<div class="emptyState">No hay filas en Lista de Precios.</div>`;
+    }
+
+    renderLPSummary(filtered);
+    return;
+  }
+
+  filtered.forEach((item) => {
+    const rellenoCost = calcLPPartCost(item.rellenoCBRCId, item.rellenoQty);
+    const coberturaCost = calcLPPartCost(item.coberturaCBRCId, item.coberturaQty);
+    const total = rellenoCost + coberturaCost;
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>
+        <input
+          type="text"
+          placeholder="Nombre"
+          value="${safe(item.name)}"
+          data-lp-id="${item.id}"
+          data-lp-field="name"
+        />
+      </td>
+
+      <td>
+        <input
+          type="text"
+          placeholder="Ej: 26 cm"
+          value="${safe(item.size)}"
+          data-lp-id="${item.id}"
+          data-lp-field="size"
+        />
+      </td>
+
+      <td>
+        <select data-lp-id="${item.id}" data-lp-field="rellenoCBRCId">
+          ${getCBRCOptionsByType("relleno", item.rellenoCBRCId)}
+        </select>
+      </td>
+
+      <td>
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          value="${toNumber(item.rellenoQty)}"
+          data-lp-id="${item.id}"
+          data-lp-field="rellenoQty"
+        />
+      </td>
+
+      <td class="lpCellCost">${money(rellenoCost)}</td>
+
+      <td>
+        <select data-lp-id="${item.id}" data-lp-field="coberturaCBRCId">
+          ${getCBRCOptionsByType("cobertura", item.coberturaCBRCId)}
+        </select>
+      </td>
+
+      <td>
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          value="${toNumber(item.coberturaQty)}"
+          data-lp-id="${item.id}"
+          data-lp-field="coberturaQty"
+        />
+      </td>
+
+      <td class="lpCellCost">${money(coberturaCost)}</td>
+      <td class="lpCellCost">${money(total)}</td>
+
+      <td>
+        <button class="lpDeleteBtn" type="button" data-delete-lp-id="${item.id}">✕</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+
+    if (mobile) {
+      const card = document.createElement("article");
+      card.className = "mobileRowCard";
+      card.setAttribute("data-lp-card-id", item.id);
+
+      card.innerHTML = `
+        <div class="mobileRowTitle">${safe(item.name) || "Nueva fila"}</div>
+
+        <div class="mobileRowMeta">
+          <div class="mobileRowMetaItem" style="grid-column:1 / -1;">
+            <span>Nombre</span>
+            <input
+              type="text"
+              placeholder="Ej: Torta 26 cm"
+              value="${safe(item.name)}"
+              data-lp-id="${item.id}"
+              data-lp-field="name"
+            />
+          </div>
+
+          <div class="mobileRowMetaItem">
+            <span>Tamaño</span>
+            <input
+              type="text"
+              placeholder="Ej: 26 cm"
+              value="${safe(item.size)}"
+              data-lp-id="${item.id}"
+              data-lp-field="size"
+            />
+          </div>
+
+          <div class="mobileRowMetaItem">
+            <span>Relleno</span>
+            <select data-lp-id="${item.id}" data-lp-field="rellenoCBRCId">
+              ${getCBRCOptionsByType("relleno", item.rellenoCBRCId)}
+            </select>
+          </div>
+
+          <div class="mobileRowMetaItem">
+            <span>Cant. relleno</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value="${toNumber(item.rellenoQty)}"
+              data-lp-id="${item.id}"
+              data-lp-field="rellenoQty"
+            />
+          </div>
+
+          <div class="mobileRowMetaItem">
+            <span>Costo relleno</span>
+            <b>${money(rellenoCost)}</b>
+          </div>
+
+          <div class="mobileRowMetaItem">
+            <span>Cobertura</span>
+            <select data-lp-id="${item.id}" data-lp-field="coberturaCBRCId">
+              ${getCBRCOptionsByType("cobertura", item.coberturaCBRCId)}
+            </select>
+          </div>
+
+          <div class="mobileRowMetaItem">
+            <span>Cant. cobertura</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value="${toNumber(item.coberturaQty)}"
+              data-lp-id="${item.id}"
+              data-lp-field="coberturaQty"
+            />
+          </div>
+
+          <div class="mobileRowMetaItem">
+            <span>Costo cobertura</span>
+            <b>${money(coberturaCost)}</b>
+          </div>
+
+          <div class="mobileRowMetaItem" style="grid-column:1 / -1;">
+            <span>Total</span>
+            <b>${money(total)}</b>
+          </div>
+        </div>
+
+        <div class="mobileRowActions">
+          <button class="iconBtn iconBtnDanger" type="button" data-delete-lp-id="${item.id}">
+            Eliminar
+          </button>
+        </div>
+      `;
+
+      mobile.appendChild(card);
+    }
+  });
+
+  renderLPSummary(filtered);
+}
+
 function updateLPField(lpId, field, value) {
   const lp = state.lp.find((x) => x.id === lpId);
   if (!lp) return;
@@ -1067,15 +1005,22 @@ function updateLPField(lpId, field, value) {
   }
 
   saveAll(true);
-  renderLPTable();
+
+  if (field === "name") {
+    updateLPMobileTitle(lpId);
+  }
+
+  renderLPSummary(getLPFilteredItems());
 }
 
 function createLP() {
   const item = createEmptyLP();
+  item.name = "";
+  item.size = "";
   state.lp.unshift(item);
   state.selectedLPId = item.id;
   saveAll(true);
-  renderPage();
+  renderLPTable();
   showToast("Fila añadida ✅");
 }
 
@@ -1088,9 +1033,13 @@ function duplicateLP() {
   state.lp.unshift(copy);
   state.selectedLPId = copy.id;
   saveAll(true);
-  renderPage();
+  renderLPTable();
   showToast("Lista de Precios duplicada ✅");
 }
+
+/* =========================
+   RECETAS
+   ========================= */
 
 function renderRecipeCBRCOptions() {
   const rellenoSelect = $("#recipeRellenoCBRC");
@@ -1291,6 +1240,10 @@ function duplicateRecipe() {
   showToast("Receta duplicada ✅");
 }
 
+/* =========================
+   PICKER
+   ========================= */
+
 function openIngredientPicker(context) {
   state.pickerContext = context;
   state.pickerIngredient = null;
@@ -1400,6 +1353,10 @@ function confirmPickerQuantity() {
   closeModal("quantityModal");
 }
 
+/* =========================
+   RENDER GENERAL
+   ========================= */
+
 function renderPage() {
   const page = document.body.dataset.page;
 
@@ -1439,6 +1396,10 @@ function initMobileBottomNav() {
     item.classList.toggle("active", item.dataset.nav === current);
   });
 }
+
+/* =========================
+   EVENTOS COMUNES
+   ========================= */
 
 function bindCommonEvents() {
   const btnGuardar = $("#btnGuardarTodo");
@@ -1629,20 +1590,12 @@ function bindCommonEvents() {
       renderRecipeEditor();
       return;
     }
-
-    const lpField = e.target.closest("[data-lp-id][data-lp-field]");
-    if (lpField) {
-      updateLPField(lpField.dataset.lpId, lpField.dataset.lpField, lpField.value);
-    }
-  });
-
-  document.addEventListener("change", (e) => {
-    const lpField = e.target.closest("[data-lp-id][data-lp-field]");
-    if (lpField) {
-      updateLPField(lpField.dataset.lpId, lpField.dataset.lpField, lpField.value);
-    }
   });
 }
+
+/* =========================
+   BIND POR PÁGINA
+   ========================= */
 
 function bindIngredientesPage() {
   const ingredientSearch = $("#ingredientSearch");
@@ -1733,6 +1686,61 @@ function bindLPPage() {
       requestDelete("lp", first.id, safe(first.name) || safe(first.size) || "Fila de lista");
     });
   }
+
+  const desktop = $("#lpTableBody");
+  if (desktop) {
+    desktop.addEventListener("input", (e) => {
+      const field = e.target.closest("[data-lp-id][data-lp-field]");
+      if (!field) return;
+
+      updateLPField(field.dataset.lpId, field.dataset.lpField, field.value);
+
+      if (field.dataset.lpField === "name") return;
+      if (field.dataset.lpField === "size") return;
+    });
+
+    desktop.addEventListener("change", (e) => {
+      const field = e.target.closest("[data-lp-id][data-lp-field]");
+      if (!field) return;
+
+      updateLPField(field.dataset.lpId, field.dataset.lpField, field.value);
+      renderLPTable();
+    });
+
+    desktop.addEventListener("blur", (e) => {
+      const field = e.target.closest("[data-lp-id][data-lp-field]");
+      if (!field) return;
+
+      updateLPField(field.dataset.lpId, field.dataset.lpField, field.value);
+      renderLPTable();
+    }, true);
+  }
+
+  const mobile = $("#lpMobileCards");
+  if (mobile) {
+    mobile.addEventListener("input", (e) => {
+      const field = e.target.closest("[data-lp-id][data-lp-field]");
+      if (!field) return;
+
+      updateLPField(field.dataset.lpId, field.dataset.lpField, field.value);
+    });
+
+    mobile.addEventListener("change", (e) => {
+      const field = e.target.closest("[data-lp-id][data-lp-field]");
+      if (!field) return;
+
+      updateLPField(field.dataset.lpId, field.dataset.lpField, field.value);
+      renderLPTable();
+    });
+
+    mobile.addEventListener("blur", (e) => {
+      const field = e.target.closest("[data-lp-id][data-lp-field]");
+      if (!field) return;
+
+      updateLPField(field.dataset.lpId, field.dataset.lpField, field.value);
+      renderLPTable();
+    }, true);
+  }
 }
 
 function bindRecetasPage() {
@@ -1782,6 +1790,10 @@ function bindRecetasPage() {
   const btnAddPresentToRecipe = $("#btnAddPresentToRecipe");
   if (btnAddPresentToRecipe) btnAddPresentToRecipe.addEventListener("click", () => openIngredientPicker("present"));
 }
+
+/* =========================
+   INIT
+   ========================= */
 
 function initData() {
   state.ingredients = readStorage(STORAGE.ingredients, []);
@@ -1835,380 +1847,3 @@ if ("serviceWorker" in navigator) {
     }
   });
 }
-/* =========================================================
-   PARCHE FINAL - LISTA DE PRECIOS MÓVIL
-   REEMPLAZAR TODO EL PARCHE ANTERIOR POR ESTE
-========================================================= */
-
-(function () {
-  let lpRenderQueued = false;
-
-  function queueLPRefresh() {
-    if (lpRenderQueued) return;
-    lpRenderQueued = true;
-
-    requestAnimationFrame(() => {
-      lpRenderQueued = false;
-      renderLPTablePatched();
-    });
-  }
-
-  function updateLPTitleOnly(lpId) {
-    const lp = state.lp.find((x) => x.id === lpId);
-    if (!lp) return;
-
-    const title = document.querySelector(
-      `#lpMobileCards [data-lp-card-id="${lpId}"] .mobileRowTitle`
-    );
-
-    if (title) {
-      title.textContent = safe(lp.name) || "Nueva fila";
-    }
-  }
-
-  function renderLPTablePatched() {
-    const tbody = document.getElementById("lpTableBody");
-    const mobile = document.getElementById("lpMobileCards");
-
-    if (!tbody) return;
-
-    const filtered = getLPFilteredItems();
-
-    tbody.innerHTML = "";
-    if (mobile) mobile.innerHTML = "";
-
-    if (!filtered.length) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="10">
-            <div class="emptyState">No hay filas en Lista de Precios.</div>
-          </td>
-        </tr>
-      `;
-
-      if (mobile) {
-        mobile.innerHTML = `<div class="emptyState">No hay filas en Lista de Precios.</div>`;
-      }
-
-      renderLPSummary(filtered);
-      return;
-    }
-
-    filtered.forEach((item) => {
-      const rellenoCost = calcLPPartCost(item.rellenoCBRCId, item.rellenoQty);
-      const coberturaCost = calcLPPartCost(item.coberturaCBRCId, item.coberturaQty);
-      const total = rellenoCost + coberturaCost;
-
-      /* ===== TABLA ESCRITORIO ===== */
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>
-          <input
-            type="text"
-            placeholder="Nombre"
-            value="${safe(item.name)}"
-            data-lp-id="${item.id}"
-            data-lp-field="name"
-          />
-        </td>
-
-        <td>
-          <input
-            type="text"
-            placeholder="Ej: 26 cm"
-            value="${safe(item.size)}"
-            data-lp-id="${item.id}"
-            data-lp-field="size"
-          />
-        </td>
-
-        <td>
-          <select data-lp-id="${item.id}" data-lp-field="rellenoCBRCId">
-            ${getCBRCOptionsByType("relleno", item.rellenoCBRCId)}
-          </select>
-        </td>
-
-        <td>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value="${toNumber(item.rellenoQty)}"
-            data-lp-id="${item.id}"
-            data-lp-field="rellenoQty"
-          />
-        </td>
-
-        <td class="lpCellCost">${money(rellenoCost)}</td>
-
-        <td>
-          <select data-lp-id="${item.id}" data-lp-field="coberturaCBRCId">
-            ${getCBRCOptionsByType("cobertura", item.coberturaCBRCId)}
-          </select>
-        </td>
-
-        <td>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value="${toNumber(item.coberturaQty)}"
-            data-lp-id="${item.id}"
-            data-lp-field="coberturaQty"
-          />
-        </td>
-
-        <td class="lpCellCost">${money(coberturaCost)}</td>
-        <td class="lpCellCost">${money(total)}</td>
-
-        <td>
-          <button
-            class="lpDeleteBtn"
-            type="button"
-            data-delete-lp-id="${item.id}"
-          >
-            ✕
-          </button>
-        </td>
-      `;
-      tbody.appendChild(tr);
-
-      /* ===== TARJETAS MÓVIL ===== */
-      if (mobile) {
-        const card = document.createElement("article");
-        card.className = "mobileRowCard";
-        card.setAttribute("data-lp-card-id", item.id);
-
-        card.innerHTML = `
-          <div class="mobileRowTitle">${safe(item.name) || "Nueva fila"}</div>
-
-          <div class="mobileRowMeta">
-            <div class="mobileRowMetaItem" style="grid-column:1 / -1;">
-              <span>Nombre</span>
-              <input
-                type="text"
-                placeholder="Ej: Torta 26 cm"
-                value="${safe(item.name)}"
-                data-lp-id="${item.id}"
-                data-lp-field="name"
-              />
-            </div>
-
-            <div class="mobileRowMetaItem">
-              <span>Tamaño</span>
-              <input
-                type="text"
-                placeholder="Ej: 26 cm"
-                value="${safe(item.size)}"
-                data-lp-id="${item.id}"
-                data-lp-field="size"
-              />
-            </div>
-
-            <div class="mobileRowMetaItem">
-              <span>Relleno</span>
-              <select data-lp-id="${item.id}" data-lp-field="rellenoCBRCId">
-                ${getCBRCOptionsByType("relleno", item.rellenoCBRCId)}
-              </select>
-            </div>
-
-            <div class="mobileRowMetaItem">
-              <span>Cant. relleno</span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value="${toNumber(item.rellenoQty)}"
-                data-lp-id="${item.id}"
-                data-lp-field="rellenoQty"
-              />
-            </div>
-
-            <div class="mobileRowMetaItem">
-              <span>Costo relleno</span>
-              <b>${money(rellenoCost)}</b>
-            </div>
-
-            <div class="mobileRowMetaItem">
-              <span>Cobertura</span>
-              <select data-lp-id="${item.id}" data-lp-field="coberturaCBRCId">
-                ${getCBRCOptionsByType("cobertura", item.coberturaCBRCId)}
-              </select>
-            </div>
-
-            <div class="mobileRowMetaItem">
-              <span>Cant. cobertura</span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value="${toNumber(item.coberturaQty)}"
-                data-lp-id="${item.id}"
-                data-lp-field="coberturaQty"
-              />
-            </div>
-
-            <div class="mobileRowMetaItem">
-              <span>Costo cobertura</span>
-              <b>${money(coberturaCost)}</b>
-            </div>
-
-            <div class="mobileRowMetaItem" style="grid-column:1 / -1;">
-              <span>Total</span>
-              <b>${money(total)}</b>
-            </div>
-          </div>
-
-          <div class="mobileRowActions">
-            <button
-              class="iconBtn iconBtnDanger"
-              type="button"
-              data-delete-lp-id="${item.id}"
-            >
-              Eliminar
-            </button>
-          </div>
-        `;
-
-        mobile.appendChild(card);
-      }
-    });
-
-    renderLPSummary(filtered);
-  }
-
-  function updateLPFieldPatched(lpId, field, value, options = {}) {
-    const lp = state.lp.find((x) => x.id === lpId);
-    if (!lp) return;
-
-    if (field === "rellenoQty" || field === "coberturaQty") {
-      lp[field] = toNumber(value);
-    } else {
-      lp[field] = value;
-    }
-
-    saveAll(true);
-
-    if (field === "name") {
-      updateLPTitleOnly(lpId);
-    }
-
-    renderLPSummary(getLPFilteredItems());
-
-    if (options.refresh) {
-      queueLPRefresh();
-    }
-  }
-
-  function createLPPatched() {
-    const item = createEmptyLP();
-    item.name = "";
-    item.size = "";
-    state.lp.unshift(item);
-    state.selectedLPId = item.id;
-    saveAll(true);
-    renderLPTablePatched();
-    showToast("Fila añadida ✅");
-  }
-
-  window.renderLPTable = renderLPTablePatched;
-  window.updateLPField = updateLPFieldPatched;
-  window.createLP = createLPPatched;
-
-  document.addEventListener("DOMContentLoaded", () => {
-    if (document.body.dataset.page !== "lp") return;
-
-    const btnNewLP = document.getElementById("btnNewLP");
-    if (btnNewLP) {
-      btnNewLP.onclick = function (e) {
-        e.preventDefault();
-        createLPPatched();
-      };
-    }
-
-    const lpSearch = document.getElementById("lpSearch");
-    if (lpSearch) {
-      lpSearch.oninput = function (e) {
-        state.searchLP = e.target.value;
-        renderLPTablePatched();
-      };
-    }
-
-    const mobile = document.getElementById("lpMobileCards");
-    if (mobile) {
-      mobile.addEventListener("input", function (e) {
-        const field = e.target.closest("[data-lp-id][data-lp-field]");
-        if (!field) return;
-
-        const lpId = field.dataset.lpId;
-        const lpField = field.dataset.lpField;
-
-        updateLPFieldPatched(lpId, lpField, field.value, { refresh: false });
-      });
-
-      mobile.addEventListener("change", function (e) {
-        const field = e.target.closest("[data-lp-id][data-lp-field]");
-        if (!field) return;
-
-        const lpId = field.dataset.lpId;
-        const lpField = field.dataset.lpField;
-
-        updateLPFieldPatched(lpId, lpField, field.value, { refresh: true });
-      });
-
-      mobile.addEventListener("blur", function (e) {
-        const field = e.target.closest("[data-lp-id][data-lp-field]");
-        if (!field) return;
-
-        const lpId = field.dataset.lpId;
-        const lpField = field.dataset.lpField;
-
-        updateLPFieldPatched(lpId, lpField, field.value, { refresh: true });
-      }, true);
-    }
-
-    const desktop = document.getElementById("lpTableBody");
-    if (desktop) {
-      desktop.addEventListener("input", function (e) {
-        const field = e.target.closest("[data-lp-id][data-lp-field]");
-        if (!field) return;
-
-        const lpId = field.dataset.lpId;
-        const lpField = field.dataset.lpField;
-
-        updateLPFieldPatched(lpId, lpField, field.value, { refresh: false });
-      });
-
-      desktop.addEventListener("change", function (e) {
-        const field = e.target.closest("[data-lp-id][data-lp-field]");
-        if (!field) return;
-
-        const lpId = field.dataset.lpId;
-        const lpField = field.dataset.lpField;
-
-        updateLPFieldPatched(lpId, lpField, field.value, { refresh: true });
-      });
-
-      desktop.addEventListener("blur", function (e) {
-        const field = e.target.closest("[data-lp-id][data-lp-field]");
-        if (!field) return;
-
-        const lpId = field.dataset.lpId;
-        const lpField = field.dataset.lpField;
-
-        updateLPFieldPatched(lpId, lpField, field.value, { refresh: true });
-      }, true);
-    }
-
-    document.addEventListener("click", function (e) {
-      const removeLP = e.target.closest("[data-delete-lp-id]");
-      if (!removeLP) return;
-
-      const lpId = removeLP.dataset.deleteLpId;
-      const lp = state.lp.find((x) => x.id === lpId);
-      requestDelete("lp", lpId, safe(lp?.name) || safe(lp?.size) || "Fila de lista");
-    });
-
-    renderLPTablePatched();
-  });
-})();
