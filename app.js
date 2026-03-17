@@ -501,18 +501,22 @@ function saveIngredient() {
   }
 
   const exists = state.ingredients.findIndex((x) => x.id === payload.id);
+
   if (exists >= 0) {
     state.ingredients[exists] = payload;
     syncIngredientSnapshots(payload);
+    showToast("Ingrediente actualizado ✅");
   } else {
     state.ingredients.unshift(payload);
+    showToast("Ingrediente guardado ✅");
   }
 
-  state.selectedIngredientId = payload.id;
   saveAll(true);
-  renderPage();
-  fillIngredientForm(payload);
-  showToast("Ingrediente guardado ✅");
+
+  // 🔥 ESTA ES LA CLAVE
+  clearIngredientForm(); // limpia todo automáticamente
+
+  renderIngredientList();
 }
 
 function removeIngredient() {
