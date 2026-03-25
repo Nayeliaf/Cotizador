@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <link rel="manifest" href="./manifest.json" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Essencia Bakery | Inicio</title>
+  <meta name="description" content="Sistema interno Essencia Bakery" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-page="home">
+  <main class="homeScreen">
+    <section class="homeScreenCard">
+      <div class="homeScreenBrand">
+        <div class="mark" aria-hidden="true"></div>
+        <div>
+          <h1>Essencia Bakery</h1>
+        </div>
+      </div>
+
+      <div class="homeScreenActions">
+        <a class="homeMainBtn homeMainBtnPrimary" href="ingredientes.html">Ingredientes</a>
+        <a class="homeMainBtn homeMainBtnPrimary" href="recetas.html">Recetas</a>
+        <a class="homeMainBtn homeMainBtnPrimary" href="lista-precios.html">Lista de Precios</a>
+        <a class="homeMainBtn homeMainBtnPrimary" href="costos-ryc.html">Costos RyC</a>
+
+        <button class="homeMainBtn homeMainBtnPrimary" type="button" id="btnGuardarTodoHome">
+          Guardar todo
+        </button>
+
+        <button class="homeMainBtn homeMainBtnGhost" type="button" id="btnExportBackupHome">
+          Exportar respaldo
+        </button>
+
+        <label class="homeMainBtn homeMainBtnGhost homeFileLabel" for="inputImportBackupHome">
+          Importar respaldo
+        </label>
+        <input
+          id="inputImportBackupHome"
+          type="file"
+          accept=".json,application/json"
+          hidden
+        />
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

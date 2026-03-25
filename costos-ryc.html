@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <link rel="manifest" href="./manifest.json" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Essencia Bakery | Costos RyC</title>
+  <meta name="description" content="Costos de rellenos y coberturas" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-page="cbrc">
+  <header class="pageHeader">
+    <div class="wrap pageHeaderInner">
+      <div class="pageHeaderLeft">
+        <div class="pageHeaderTitle">
+          <h1>Costos RyC</h1>
+          <small>Rellenos y coberturas</small>
+        </div>
+      </div>
+
+      <div class="pageHeaderRight pageHeaderActions">
+        <button class="btn btnGhost" type="button" id="btnExportBackup">Exportar</button>
+        <label class="btn btnGhost fileBtnLabel" for="inputImportBackup">Importar</label>
+        <input id="inputImportBackup" type="file" accept=".json,application/json" hidden />
+        <button class="btn btnPrimary" type="button" id="btnGuardarTodo">Guardar todo</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap moduleLayout">
+    <aside class="moduleSidebar card">
+      <div class="sectionHead compact">
+        <div>
+          <h2>Costos RyC</h2>
+          <p>Base de rellenos y coberturas.</p>
+        </div>
+      </div>
+
+      <label for="cbrcSearch">Buscar</label>
+      <input id="cbrcSearch" type="text" placeholder="Ej: Ganache blanco" />
+
+      <div class="formActions">
+        <button class="btn btnGhost" type="button" id="btnNewCBRC">+ Nueva receta</button>
+      </div>
+
+      <div class="entityList" id="cbrcList"></div>
+    </aside>
+
+    <section class="moduleMain">
+      <section class="card">
+        <div class="sectionHead">
+          <div>
+            <h2>Datos generales</h2>
+            <p>Aquí defines el costo base del relleno o cobertura.</p>
+          </div>
+
+          <div class="toolbarActions">
+            <button class="btn btnGhost" type="button" id="btnDuplicateCBRC">Duplicar</button>
+            <button class="btn btnDanger" type="button" id="btnDeleteCBRC">Eliminar</button>
+          </div>
+        </div>
+
+        <div class="formGrid">
+          <div>
+            <label for="cbrcName">Nombre</label>
+            <input id="cbrcName" type="text" placeholder="Ej: Ganache de chocolate" />
+          </div>
+
+          <div>
+            <label for="cbrcType">Tipo</label>
+            <select id="cbrcType">
+              <option value="relleno">Relleno</option>
+              <option value="cobertura">Cobertura</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="cbrcYield">Rendimiento total</label>
+            <input id="cbrcYield" type="number" min="0" step="0.01" placeholder="Ej: 1000" />
+          </div>
+
+          <div>
+            <label for="cbrcYieldUnit">Unidad</label>
+            <input id="cbrcYieldUnit" type="text" placeholder="Ej: gr" />
+          </div>
+
+          <div class="fieldFull">
+            <label for="cbrcNotes">Notas</label>
+            <textarea id="cbrcNotes" placeholder="Notas internas del Costos RyC..."></textarea>
+          </div>
+        </div>
+      </section>
+
+      <section class="card sectionSpacer">
+        <div class="sectionHead">
+          <div>
+            <h2>Ingredientes</h2>
+            <p>Añade ingredientes y cantidades usadas en este Costos RyC.</p>
+          </div>
+          <button class="btn btnGhost" type="button" id="btnAddIngredientToCBRC">+ Añadir ingrediente</button>
+        </div>
+
+        <div class="mobileCardsList hidden" id="cbrcItemsCards"></div>
+
+        <div class="tableWrap desktopTableWrap">
+          <table class="costTable">
+            <thead>
+              <tr>
+                <th>Ingrediente</th>
+                <th>Presentación</th>
+                <th>Unidad</th>
+                <th>Precio base</th>
+                <th>Cantidad usada</th>
+                <th>Costo</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="cbrcItemsBody"></tbody>
+          </table>
+        </div>
+
+        <div class="blockFooter">
+          <span>Total Costos RyC</span>
+          <b id="cbrcSubtotal">$0.00</b>
+        </div>
+      </section>
+    </section>
+
+    <aside class="moduleSummary card">
+      <div class="sectionHead compact">
+        <div>
+          <h2>Resumen</h2>
+          <p>Totales automáticos.</p>
+        </div>
+      </div>
+
+      <div class="summaryGrid">
+        <div class="summaryItem"><span>Rendimiento</span><b id="sumCBRCYield">0</b></div>
+        <div class="summaryItem"><span>Costo total</span><b id="sumCBRCTotal">$0.00</b></div>
+        <div class="summaryItem accent"><span>Costo por unidad</span><b id="sumCBRCPerUnit">$0.00</b></div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- PICKER INGREDIENTES -->
+  <div class="modalBackdrop" id="pickerModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modalBody">
+        <div class="modalTop">
+          <h3 class="modalTitle" id="pickerTitle">Elegir ingrediente</h3>
+          <button class="modalClose" type="button" data-close="pickerModal">✕</button>
+        </div>
+
+        <label for="pickerSearch">Buscar ingrediente</label>
+        <input id="pickerSearch" type="text" placeholder="Ej: azúcar, chantilly..." />
+
+        <div class="pickerList" id="pickerList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CANTIDAD -->
+  <div class="modalBackdrop" id="quantityModal" aria-hidden="true">
+    <div class="modal modalSmall" role="dialog" aria-modal="true">
+      <div class="modalBody">
+        <div class="modalTop">
+          <h3 class="modalTitle">Cantidad a usar</h3>
+          <button class="modalClose" type="button" data-close="quantityModal">✕</button>
+        </div>
+
+        <p class="hint" id="quantityIngredientName">Ingrediente</p>
+
+        <label for="quantityInput">Cantidad</label>
+        <input id="quantityInput" type="number" min="0" step="0.01" placeholder="Ej: 500" />
+
+        <p class="hint">Unidad: <span id="quantityUnitLabel">gr</span></p>
+
+        <div class="formActions">
+          <button class="btn btnGhost" type="button" id="btnCancelQuantity">Cancelar</button>
+          <button class="btn btnPrimary" type="button" id="btnConfirmQuantity">Aceptar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL ELIMINAR -->
+  <div class="modalBackdrop" id="deleteModal" aria-hidden="true">
+    <div class="modal modalSmall" role="dialog" aria-modal="true">
+      <div class="modalBody">
+        <div class="modalTop">
+          <h3 class="modalTitle">Eliminar</h3>
+          <button class="modalClose" type="button" data-close="deleteModal">✕</button>
+        </div>
+
+        <p class="hint">Estás a punto de eliminar:</p>
+        <div class="selectorMeta" id="deleteLabel">Elemento</div>
+
+        <div class="formActions">
+          <button class="btn btnGhost" type="button" id="btnCancelDelete">Cancelar</button>
+          <button class="btn btnDanger" type="button" id="btnConfirmDelete">Sí, eliminar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="mobileBottomNav" aria-label="Navegación móvil">
+    <a href="index.html" class="mobileBottomNavItem" data-nav="home">
+      <span>Inicio</span>
+    </a>
+    <a href="ingredientes.html" class="mobileBottomNavItem" data-nav="ingredientes">
+      <span>Ingredientes</span>
+    </a>
+    <a href="costos-ryc.html" class="mobileBottomNavItem" data-nav="cbrc">
+      <span>Costos RyC</span>
+    </a>
+    <a href="lista-precios.html" class="mobileBottomNavItem" data-nav="lp">
+      <span>Lista</span>
+    </a>
+    <a href="recetas.html" class="mobileBottomNavItem" data-nav="recetas">
+      <span>Recetas</span>
+    </a>
+  </nav>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

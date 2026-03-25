@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <link rel="manifest" href="./manifest.json" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Essencia Bakery | Recetas</title>
+  <meta name="description" content="Recetas Essencia Bakery" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-page="recetas">
+  <header class="pageHeader">
+    <div class="wrap pageHeaderInner">
+      <div class="pageHeaderLeft">
+        <div class="pageHeaderTitle">
+          <h1>Recetas</h1>
+          <small>Cotización final</small>
+        </div>
+      </div>
+
+      <div class="pageHeaderRight pageHeaderActions">
+        <button class="btn btnGhost" type="button" id="btnExportBackup">Exportar</button>
+        <label class="btn btnGhost fileBtnLabel" for="inputImportBackup">Importar</label>
+        <input id="inputImportBackup" type="file" accept=".json,application/json" hidden />
+        <button class="btn btnPrimary" type="button" id="btnGuardarTodo">Guardar todo</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap moduleLayout">
+    <aside class="moduleSidebar card">
+      <div class="sectionHead compact">
+        <div>
+          <h2>Recetas</h2>
+          <p>Cotización final.</p>
+        </div>
+      </div>
+
+      <label for="recipeSearch">Buscar</label>
+      <input id="recipeSearch" type="text" placeholder="Ej: Torta vainilla 26 cm" />
+
+      <div class="formActions">
+        <button class="btn btnGhost" type="button" id="btnNewRecipe">+ Nueva receta</button>
+      </div>
+
+      <div class="entityList" id="recipeList"></div>
+    </aside>
+
+    <section class="moduleMain">
+      <section class="card">
+        <div class="sectionHead">
+          <div>
+            <h2>Datos generales</h2>
+            <p>La receta final se trabaja aquí.</p>
+          </div>
+
+          <div class="toolbarActions">
+            <button class="btn btnGhost" type="button" id="btnDuplicateRecipe">Duplicar</button>
+            <button class="btn btnDanger" type="button" id="btnDeleteRecipe">Eliminar</button>
+          </div>
+        </div>
+
+        <div class="formGrid formGrid3">
+          <div>
+            <label for="recipeName">Nombre de la receta</label>
+            <input id="recipeName" type="text" placeholder="Ej: Torta vainilla 26 cm" />
+          </div>
+
+          <div>
+            <label for="recipeSize">Tamaño</label>
+            <input id="recipeSize" type="text" placeholder="Ej: 26 cm" />
+          </div>
+
+          <div>
+            <label for="recipeCategory">Categoría</label>
+            <select id="recipeCategory">
+              <option value="tortas">Tortas</option>
+              <option value="postres">Postres</option>
+              <option value="otros">Otros</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="recipeServings">Porciones</label>
+            <input id="recipeServings" type="number" min="0" step="1" />
+          </div>
+
+          <div>
+            <label for="recipeLabor">Mano de obra</label>
+            <input id="recipeLabor" type="number" min="0" step="0.01" />
+          </div>
+
+          <div>
+            <label for="recipeDelivery">Envío</label>
+            <input id="recipeDelivery" type="number" min="0" step="0.01" />
+          </div>
+
+          <div>
+            <label for="recipeMargin">Porcentaje de ganancia</label>
+            <input id="recipeMargin" type="number" min="0" step="0.01" placeholder="Ej: 30" />
+          </div>
+
+          <div class="fieldFull">
+            <label for="recipeNotes">Notas internas</label>
+            <textarea id="recipeNotes" placeholder="Notas, observaciones o cambios para esta receta..."></textarea>
+          </div>
+        </div>
+      </section>
+
+      <section class="card sectionSpacer">
+        <div class="sectionHead">
+          <div>
+            <h2>Materiales</h2>
+            <p>Ingredientes principales directos.</p>
+          </div>
+          <button class="btn btnGhost" type="button" id="btnAddBaseToRecipe">+ Añadir ingrediente</button>
+        </div>
+
+        <div class="mobileCardsList hidden" id="recipeBaseCards"></div>
+
+        <div class="tableWrap desktopTableWrap">
+          <table class="costTable">
+            <thead>
+              <tr>
+                <th>Ingrediente</th>
+                <th>Presentación</th>
+                <th>Unidad</th>
+                <th>Precio base</th>
+                <th>Cantidad usada</th>
+                <th>Costo</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="recipeBaseBody"></tbody>
+          </table>
+        </div>
+
+        <div class="blockFooter">
+          <span>Subtotal materiales</span>
+          <b id="recipeSubtotalBase">$0.00</b>
+        </div>
+      </section>
+
+      <section class="card sectionSpacer">
+        <div class="sectionHead">
+          <div>
+            <h2>Relleno</h2>
+            <p>Selecciona el CBRC y ajusta la cantidad manualmente.</p>
+          </div>
+        </div>
+
+        <div class="selectorBox">
+          <div class="formGrid">
+            <div>
+              <label for="recipeRellenoCBRC">CBRC Relleno</label>
+              <select id="recipeRellenoCBRC"></select>
+            </div>
+            <div>
+              <label for="recipeRellenoQty">Cantidad usada</label>
+              <input id="recipeRellenoQty" type="number" min="0" step="0.01" />
+            </div>
+          </div>
+
+          <div class="selectorMeta" id="recipeRellenoMeta">No hay relleno seleccionado.</div>
+        </div>
+
+        <div class="blockFooter">
+          <span>Subtotal relleno</span>
+          <b id="recipeSubtotalRelleno">$0.00</b>
+        </div>
+      </section>
+
+      <section class="card sectionSpacer">
+        <div class="sectionHead">
+          <div>
+            <h2>Cobertura</h2>
+            <p>Selecciona el CBRC y ajusta la cantidad manualmente.</p>
+          </div>
+        </div>
+
+        <div class="selectorBox">
+          <div class="formGrid">
+            <div>
+              <label for="recipeCoberturaCBRC">CBRC Cobertura</label>
+              <select id="recipeCoberturaCBRC"></select>
+            </div>
+            <div>
+              <label for="recipeCoberturaQty">Cantidad usada</label>
+              <input id="recipeCoberturaQty" type="number" min="0" step="0.01" />
+            </div>
+          </div>
+
+          <div class="selectorMeta" id="recipeCoberturaMeta">No hay cobertura seleccionada.</div>
+        </div>
+
+        <div class="blockFooter">
+          <span>Subtotal cobertura</span>
+          <b id="recipeSubtotalCobertura">$0.00</b>
+        </div>
+      </section>
+
+      <section class="card sectionSpacer">
+        <div class="sectionHead">
+          <div>
+            <h2>Decoración</h2>
+            <p>Extras visuales y topper manual.</p>
+          </div>
+          <button class="btn btnGhost" type="button" id="btnAddDecorToRecipe">+ Añadir ingrediente</button>
+        </div>
+
+        <div class="manualExtraCard">
+          <div>
+            <h3>Topper personalizado</h3>
+            <p>Costo manual editable por receta.</p>
+          </div>
+
+          <div class="manualExtraInputWrap">
+            <span>$</span>
+            <input id="manualTopperPrice" type="number" min="0" step="0.01" placeholder="0" />
+          </div>
+        </div>
+
+        <div class="mobileCardsList hidden" id="recipeDecorCards"></div>
+
+        <div class="tableWrap desktopTableWrap">
+          <table class="costTable">
+            <thead>
+              <tr>
+                <th>Ingrediente</th>
+                <th>Presentación</th>
+                <th>Unidad</th>
+                <th>Precio base</th>
+                <th>Cantidad usada</th>
+                <th>Costo</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="recipeDecorBody"></tbody>
+          </table>
+        </div>
+
+        <div class="blockFooter">
+          <span>Subtotal decoración</span>
+          <b id="recipeSubtotalDecor">$0.00</b>
+        </div>
+      </section>
+
+      <section class="card sectionSpacer">
+        <div class="sectionHead">
+          <div>
+            <h2>Presentación</h2>
+            <p>Caja, disco, etiqueta, vela, etc.</p>
+          </div>
+          <button class="btn btnGhost" type="button" id="btnAddPresentToRecipe">+ Añadir ingrediente</button>
+        </div>
+
+        <div class="mobileCardsList hidden" id="recipePresentCards"></div>
+
+        <div class="tableWrap desktopTableWrap">
+          <table class="costTable">
+            <thead>
+              <tr>
+                <th>Ingrediente</th>
+                <th>Presentación</th>
+                <th>Unidad</th>
+                <th>Precio base</th>
+                <th>Cantidad usada</th>
+                <th>Costo</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="recipePresentBody"></tbody>
+          </table>
+        </div>
+
+        <div class="blockFooter">
+          <span>Subtotal presentación</span>
+          <b id="recipeSubtotalPresent">$0.00</b>
+        </div>
+      </section>
+    </section>
+
+    <aside class="moduleSummary card">
+      <div class="sectionHead compact">
+        <div>
+          <h2>Resumen</h2>
+          <p>Totales automáticos de la receta.</p>
+        </div>
+      </div>
+
+      <div class="summaryGrid">
+        <div class="summaryItem"><span>Materiales</span><b id="sumRecipeBase">$0.00</b></div>
+        <div class="summaryItem"><span>Relleno</span><b id="sumRecipeRelleno">$0.00</b></div>
+        <div class="summaryItem"><span>Cobertura</span><b id="sumRecipeCobertura">$0.00</b></div>
+        <div class="summaryItem"><span>Decoración</span><b id="sumRecipeDecor">$0.00</b></div>
+        <div class="summaryItem"><span>Presentación</span><b id="sumRecipePresent">$0.00</b></div>
+        <div class="summaryItem"><span>Total materiales</span><b id="sumRecipeMaterials">$0.00</b></div>
+        <div class="summaryItem"><span>Mano de obra</span><b id="sumRecipeLabor">$0.00</b></div>
+        <div class="summaryItem"><span>Envío</span><b id="sumRecipeDelivery">$0.00</b></div>
+        <div class="summaryItem"><span>Costo total</span><b id="sumRecipeOriginal">$0.00</b></div>
+        <div class="summaryItem accent"><span>Total venta</span><b id="sumRecipeFinal">$0.00</b></div>
+        <div class="summaryItem"><span>Precio por porción</span><b id="sumRecipePerServing">$0.00</b></div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- PICKER INGREDIENTES -->
+  <div class="modalBackdrop" id="pickerModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modalBody">
+        <div class="modalTop">
+          <h3 class="modalTitle" id="pickerTitle">Elegir ingrediente</h3>
+          <button class="modalClose" type="button" data-close="pickerModal">✕</button>
+        </div>
+
+        <label for="pickerSearch">Buscar ingrediente</label>
+        <input id="pickerSearch" type="text" placeholder="Ej: azúcar, chantilly..." />
+
+        <div class="pickerList" id="pickerList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CANTIDAD -->
+  <div class="modalBackdrop" id="quantityModal" aria-hidden="true">
+    <div class="modal modalSmall" role="dialog" aria-modal="true">
+      <div class="modalBody">
+        <div class="modalTop">
+          <h3 class="modalTitle">Cantidad a usar</h3>
+          <button class="modalClose" type="button" data-close="quantityModal">✕</button>
+        </div>
+
+        <p class="hint" id="quantityIngredientName">Ingrediente</p>
+
+        <label for="quantityInput">Cantidad</label>
+        <input id="quantityInput" type="number" min="0" step="0.01" placeholder="Ej: 500" />
+
+        <p class="hint">Unidad: <span id="quantityUnitLabel">gr</span></p>
+
+        <div class="formActions">
+          <button class="btn btnGhost" type="button" id="btnCancelQuantity">Cancelar</button>
+          <button class="btn btnPrimary" type="button" id="btnConfirmQuantity">Aceptar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL ELIMINAR -->
+  <div class="modalBackdrop" id="deleteModal" aria-hidden="true">
+    <div class="modal modalSmall" role="dialog" aria-modal="true">
+      <div class="modalBody">
+        <div class="modalTop">
+          <h3 class="modalTitle">Eliminar</h3>
+          <button class="modalClose" type="button" data-close="deleteModal">✕</button>
+        </div>
+
+        <p class="hint">Estás a punto de eliminar:</p>
+        <div class="selectorMeta" id="deleteLabel">Elemento</div>
+
+        <div class="formActions">
+          <button class="btn btnGhost" type="button" id="btnCancelDelete">Cancelar</button>
+          <button class="btn btnDanger" type="button" id="btnConfirmDelete">Sí, eliminar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="mobileBottomNav" aria-label="Navegación móvil">
+    <a href="index.html" class="mobileBottomNavItem" data-nav="home">
+      <span>Inicio</span>
+    </a>
+    <a href="ingredientes.html" class="mobileBottomNavItem" data-nav="ingredientes">
+      <span>Ingredientes</span>
+    </a>
+    <a href="costos-ryc.html" class="mobileBottomNavItem" data-nav="cbrc">
+      <span>Costos RyC</span>
+    </a>
+    <a href="lista-precios.html" class="mobileBottomNavItem" data-nav="lp">
+      <span>Lista</span>
+    </a>
+    <a href="recetas.html" class="mobileBottomNavItem" data-nav="recetas">
+      <span>Recetas</span>
+    </a>
+  </nav>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

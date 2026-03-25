@@ -1,0 +1,22 @@
+{
+  "name": "Essencia Bakery",
+  "short_name": "Essencia",
+  "description": "Sistema interno de Essencia Bakery",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f9f3ec",
+  "theme_color": "#700105",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "./isotipo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./isotipo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

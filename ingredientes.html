@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <link rel="manifest" href="./manifest.json" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Essencia Bakery | Ingredientes</title>
+  <meta name="description" content="Ingredientes Essencia Bakery" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-page="ingredientes">
+  <header class="pageHeader">
+    <div class="wrap pageHeaderInner">
+      <div class="pageHeaderLeft">
+        <div class="pageHeaderTitle">
+          <h1>Ingredientes</h1>
+          <small>Materia prima individual</small>
+        </div>
+      </div>
+
+      <div class="pageHeaderRight pageHeaderActions">
+        <button class="btn btnGhost" type="button" id="btnExportBackup">Exportar</button>
+        <label class="btn btnGhost fileBtnLabel" for="inputImportBackup">Importar</label>
+        <input id="inputImportBackup" type="file" accept=".json,application/json" hidden />
+        <button class="btn btnPrimary" type="button" id="btnGuardarTodo">Guardar todo</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap pageGridSingle">
+    <section class="card">
+      <div class="sectionHead compact">
+        <div>
+          <h2>Catálogo</h2>
+          <p>Registra, edita y organiza tus ingredientes base.</p>
+        </div>
+      </div>
+
+      <label for="ingredientSearch">Buscar ingrediente</label>
+      <input id="ingredientSearch" type="text" placeholder="Ej: azúcar, chantilly..." />
+
+      <div class="contentGridTwo">
+        <div>
+          <div class="entityList" id="ingredientList"></div>
+        </div>
+
+        <div class="card softCard innerCard">
+          <div class="sectionHead compact">
+            <div>
+              <h2 id="ingredientFormTitle">Nuevo ingrediente</h2>
+              <p>Completa los datos y guarda.</p>
+            </div>
+          </div>
+
+          <label for="ingredientName">Nombre</label>
+          <input id="ingredientName" type="text" placeholder="Ej: Azúcar refinada" />
+
+          <label for="ingredientCategory">Categoría</label>
+          <select id="ingredientCategory">
+            <option value="base">Materiales</option>
+            <option value="decoracion">Decoración</option>
+            <option value="presentacion">Presentación</option>
+            <option value="otros">Otros</option>
+          </select>
+
+          <label for="ingredientPresentation">Presentación</label>
+          <input id="ingredientPresentation" type="number" min="0" step="0.01" placeholder="Ej: 1000" />
+
+          <label for="ingredientUnit">Unidad</label>
+          <input id="ingredientUnit" type="text" placeholder="Ej: gr / ml / und" />
+
+          <label for="ingredientPrice">Precio</label>
+          <input id="ingredientPrice" type="number" min="0" step="0.01" placeholder="Ej: 1.20" />
+
+          <label for="ingredientNotes">Notas</label>
+          <textarea id="ingredientNotes" placeholder="Notas internas del ingrediente..."></textarea>
+
+          <div class="formActions">
+            <button class="btn btnPrimary" type="button" id="btnSaveIngredient">Guardar ingrediente</button>
+            <button class="btn btnGhost" type="button" id="btnClearIngredient">Limpiar</button>
+            <button class="btn btnDanger hidden" type="button" id="btnDeleteIngredient">Eliminar</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="mobileBottomNav" aria-label="Navegación móvil">
+    <a href="index.html" class="mobileBottomNavItem" data-nav="home">
+      <span>Inicio</span>
+    </a>
+    <a href="ingredientes.html" class="mobileBottomNavItem" data-nav="ingredientes">
+      <span>Ingredientes</span>
+    </a>
+    <a href="costos-ryc.html" class="mobileBottomNavItem" data-nav="cbrc">
+      <span>Costos RyC</span>
+    </a>
+    <a href="lista-precios.html" class="mobileBottomNavItem" data-nav="lp">
+      <span>Lista</span>
+    </a>
+    <a href="recetas.html" class="mobileBottomNavItem" data-nav="recetas">
+      <span>Recetas</span>
+    </a>
+  </nav>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <link rel="manifest" href="./manifest.json" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Essencia Bakery | Lista de Precios</title>
+  <meta name="description" content="Lista de precios Essencia Bakery" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-page="lp">
+  <header class="pageHeader">
+    <div class="wrap pageHeaderInner">
+      <div class="pageHeaderLeft">
+        <div class="pageHeaderTitle">
+          <h1>Lista de Precios</h1>
+          <small>Tamaño + relleno + cobertura</small>
+        </div>
+      </div>
+
+      <div class="pageHeaderRight pageHeaderActions">
+        <button class="btn btnGhost" type="button" id="btnExportBackup">Exportar</button>
+        <label class="btn btnGhost fileBtnLabel" for="inputImportBackup">Importar</label>
+        <input id="inputImportBackup" type="file" accept=".json,application/json" hidden />
+        <button class="btn btnPrimary" type="button" id="btnGuardarTodo">Guardar todo</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap pageGridSingle">
+    <section class="card">
+      <div class="sectionHead">
+        <div>
+          <h2>Lista de Precios</h2>
+          <p>Edita todo directamente aquí, como hoja de cálculo.</p>
+        </div>
+
+        <div class="toolbarActions">
+          <input
+            id="lpSearch"
+            class="lpSearchInput"
+            type="text"
+            placeholder="Buscar por tamaño, nombre, relleno o cobertura"
+          />
+          <button class="btn btnGhost" type="button" id="btnNewLP">+ Nueva fila</button>
+        </div>
+      </div>
+
+      <!-- TABLA ESCRITORIO -->
+      <div class="desktopTableWrap">
+        <div class="tableWrap lpSheetWrap">
+          <table class="costTable lpSheetTable">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Tamaño</th>
+                <th>Relleno</th>
+                <th>Cant. relleno</th>
+                <th>Costo relleno</th>
+                <th>Cobertura</th>
+                <th>Cant. cobertura</th>
+                <th>Costo cobertura</th>
+                <th>Total RyC</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody id="lpTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TARJETAS MÓVIL -->
+      <div class="mobileCardsList hidden" id="lpMobileCards"></div>
+
+      <div class="lpSheetSummary" id="lpSheetSummary">
+        <div class="miniStatItem">
+          <span>Filas</span>
+          <b id="lpSummaryCount">0</b>
+        </div>
+        <div class="miniStatItem">
+          <span>Total general</span>
+          <b id="lpSummaryGrandTotal">$0.00</b>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL ELIMINAR -->
+  <div class="modalBackdrop" id="deleteModal" aria-hidden="true">
+    <div class="modal modalSmall" role="dialog" aria-modal="true">
+      <div class="modalBody">
+        <div class="modalTop">
+          <h3 class="modalTitle">Eliminar</h3>
+          <button class="modalClose" type="button" data-close="deleteModal">✕</button>
+        </div>
+
+        <p class="hint">Estás a punto de eliminar:</p>
+        <div class="selectorMeta" id="deleteLabel">Elemento</div>
+
+        <div class="formActions">
+          <button class="btn btnGhost" type="button" id="btnCancelDelete">Cancelar</button>
+          <button class="btn btnDanger" type="button" id="btnConfirmDelete">Sí, eliminar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="mobileBottomNav" aria-label="Navegación móvil">
+    <a href="index.html" class="mobileBottomNavItem" data-nav="home">
+      <span>Inicio</span>
+    </a>
+    <a href="ingredientes.html" class="mobileBottomNavItem" data-nav="ingredientes">
+      <span>Ingredientes</span>
+    </a>
+    <a href="costos-ryc.html" class="mobileBottomNavItem" data-nav="cbrc">
+      <span>Costos RyC</span>
+    </a>
+    <a href="lista-precios.html" class="mobileBottomNavItem" data-nav="lp">
+      <span>Lista</span>
+    </a>
+    <a href="recetas.html" class="mobileBottomNavItem" data-nav="recetas">
+      <span>Recetas</span>
+    </a>
+  </nav>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
