@@ -1874,3 +1874,56 @@ if ("serviceWorker" in navigator) {
     }
   });
 }
+/* =========================================================
+   PARCHE FINAL - ARREGLAR ELIMINAR INGREDIENTE
+   PEGAR AL FINAL DE app.js
+========================================================= */
+
+(function () {
+  function removeIngredientFixed() {
+    const item = getSelectedIngredient();
+
+    if (!item) {
+      alert("Selecciona un ingrediente para eliminar.");
+      return;
+    }
+
+    const usedInCBRC = state.cbrc.some((cbrc) =>
+      (cbrc.items || []).some((row) => row.ingredientId === item.id)
+    );
+
+    const usedInRecipes = state.recipes.some((recipe) =>
+      [
+        ...(recipe.baseRows || []),
+        ...(recipe.decorRows || []),
+        ...(recipe.presentRows || [])
+      ].some((row) => row.ingredientId === item.id)
+    );
+
+    if (usedInCBRC || usedInRecipes) {
+      alert("No puedes eliminar este ingrediente porque ya está usado en Costos RyC o Recetas.");
+      return;
+    }
+
+    requestDelete("ingredient", item.id, item.name);
+  }
+
+  // Reemplaza la función global
+  window.removeIngredient = removeIngredientFixed;
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const btnDeleteIngredient = document.getElementById("btnDeleteIngredient");
+
+    if (btnDeleteIngredient) {
+      // elimina posibles eventos anteriores clonando el botón
+      const newBtn = btnDeleteIngredient.cloneNode(true);
+      btnDeleteIngredient.parentNode.replaceChild(newBtn, btnDeleteIngredient);
+
+      newBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        removeIngredientFixed();
+      });
+    }
+  });
+})();
