@@ -13,18 +13,15 @@ const state = {
   cbrc: [],
   lp: [],
   recipes: [],
-
   selectedIngredientId: null,
   selectedCBRCId: null,
   selectedLPId: null,
   selectedRecipeId: null,
-
   searchIngredient: "",
   searchCBRC: "",
   searchLP: "",
   searchRecipe: "",
   searchPicker: "",
-
   pickerContext: null,
   pickerIngredient: null,
   deleteContext: null,
@@ -55,10 +52,8 @@ function clone(data) {
 function showToast(message = "Listo") {
   const toast = $("#toast");
   if (!toast) return;
-
   toast.textContent = message;
   toast.classList.add("show");
-
   if (state.toastTimer) clearTimeout(state.toastTimer);
   state.toastTimer = setTimeout(() => {
     toast.classList.remove("show");
@@ -81,7 +76,6 @@ function saveAll(silent = false) {
   localStorage.setItem(STORAGE.cbrc, JSON.stringify(state.cbrc));
   localStorage.setItem(STORAGE.lp, JSON.stringify(state.lp));
   localStorage.setItem(STORAGE.recipes, JSON.stringify(state.recipes));
-
   if (!silent) showToast("Cambios guardados ✅");
 }
 
@@ -177,7 +171,6 @@ function calcRowCost(row) {
   const presentation = toNumber(row.presentation);
   const price = toNumber(row.price);
   const qty = toNumber(row.qty);
-
   if (presentation <= 0 || price <= 0 || qty <= 0) return 0;
   return (qty / presentation) * price;
 }
@@ -214,14 +207,12 @@ function calcRecipeTotals(recipe) {
   const cobertura = calcLPPartCost(recipe.coberturaCBRCId, recipe.coberturaQty);
   const decor = calcRowsTotal(recipe.decorRows) + toNumber(recipe.manualTopper);
   const present = calcRowsTotal(recipe.presentRows);
-
   const materials = base + relleno + cobertura + decor + present;
   const labor = toNumber(recipe.labor);
   const delivery = toNumber(recipe.delivery);
   const original = materials + labor + delivery;
   const final = original * (1 + toNumber(recipe.margin) / 100);
   const perServing = toNumber(recipe.portions) > 0 ? final / toNumber(recipe.portions) : 0;
-
   return { base, relleno, cobertura, decor, present, materials, labor, delivery, original, final, perServing };
 }
 
@@ -241,13 +232,15 @@ function closeModal(id) {
   document.body.style.overflow = "";
 }
 
+// ✅ FIX: Usar confirm() nativo en lugar de modal
 function requestDelete(type, id, label) {
-  state.deleteContext = { type, id };
-  const deleteLabel = $("#deleteLabel");
-  if (deleteLabel) deleteLabel.textContent = label;
-  openModal("deleteModal");
+  if (confirm(`¿Estás seguro de eliminar "${label}"?`)) {
+    state.deleteContext = { type, id };
+    confirmDelete();
+  }
 }
 
+// ✅ FIX: No depender de closeModal para deleteModal
 function confirmDelete() {
   const ctx = state.deleteContext;
   if (!ctx) return;
@@ -255,13 +248,11 @@ function confirmDelete() {
   if (ctx.type === "cbrc") {
     const usedInLP = state.lp.some((x) => x.rellenoCBRCId === ctx.id || x.coberturaCBRCId === ctx.id);
     const usedInRecipes = state.recipes.some((x) => x.rellenoCBRCId === ctx.id || x.coberturaCBRCId === ctx.id);
-
     if (usedInLP || usedInRecipes) {
       alert("No puedes eliminar este Costos RyC porque ya está usado en Lista de Precios o Recetas.");
-      closeModal("deleteModal");
+      state.deleteContext = null;
       return;
     }
-
     state.cbrc = state.cbrc.filter((x) => x.id !== ctx.id);
     if (!state.cbrc.length) state.cbrc = [createEmptyCBRC()];
     state.selectedCBRCId = state.cbrc[0]?.id || null;
@@ -285,7 +276,6 @@ function confirmDelete() {
   }
 
   saveAll(true);
-  closeModal("deleteModal");
   state.deleteContext = null;
   renderPage();
   showToast("Elemento eliminado ✅");
@@ -302,7 +292,6 @@ function syncIngredientSnapshots(item) {
       }
     });
   });
-
   state.recipes.forEach((recipe) => {
     [recipe.baseRows, recipe.decorRows, recipe.presentRows].forEach((rows) => {
       rows.forEach((row) => {
@@ -316,10 +305,6 @@ function syncIngredientSnapshots(item) {
     });
   });
 }
-
-/* =========================
-   BACKUP JSON
-   ========================= */
 
 function buildBackupPayload() {
   return {
@@ -338,14 +323,12 @@ function buildBackupPayload() {
 function downloadTextFile(filename, content, mimeType = "application/json") {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
-
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
   document.body.appendChild(link);
   link.click();
   link.remove();
-
   URL.revokeObjectURL(url);
 }
 
@@ -361,12 +344,10 @@ function exportBackup() {
       String(date.getHours()).padStart(2, "0"),
       String(date.getMinutes()).padStart(2, "0")
     ].join("");
-
     downloadTextFile(
       `essencia-respaldo-${stamp}.json`,
       JSON.stringify(payload, null, 2)
     );
-
     showToast("Respaldo exportado ✅");
   } catch {
     alert("No pude exportar el respaldo.");
@@ -375,35 +356,28 @@ function exportBackup() {
 
 function applyBackupData(parsed) {
   const source = parsed?.data ? parsed.data : parsed;
-
   if (!source || typeof source !== "object") {
     throw new Error("Formato inválido");
   }
-
   const ingredients = Array.isArray(source.ingredients) ? source.ingredients : [];
   const cbrc = Array.isArray(source.cbrc) ? source.cbrc : [];
   const lp = Array.isArray(source.lp) ? source.lp : [];
   const recipes = Array.isArray(source.recipes) ? source.recipes.map(ensureRecipe) : [];
-
   state.ingredients = ingredients;
   state.cbrc = cbrc.length ? cbrc : [createEmptyCBRC()];
   state.lp = lp;
   state.recipes = recipes.length ? recipes : [createEmptyRecipe()];
-
   state.selectedIngredientId = null;
   state.selectedCBRCId = state.cbrc[0]?.id || null;
   state.selectedLPId = state.lp[0]?.id || null;
   state.selectedRecipeId = state.recipes[0]?.id || null;
-
   saveAll(true);
   renderPage();
 }
 
 function importBackupFromFile(file) {
   if (!file) return;
-
   const reader = new FileReader();
-
   reader.onload = () => {
     try {
       const parsed = JSON.parse(reader.result);
@@ -413,32 +387,23 @@ function importBackupFromFile(file) {
       alert("El archivo no es válido o está dañado.");
     }
   };
-
   reader.onerror = () => {
     alert("No pude leer el archivo.");
   };
-
   reader.readAsText(file, "utf-8");
 }
-
-/* =========================
-   INGREDIENTES
-   ========================= */
 
 function renderIngredientList() {
   const list = $("#ingredientList");
   if (!list) return;
   list.innerHTML = "";
-
   const filtered = state.ingredients.filter((item) =>
     safe(item.name).toLowerCase().includes(state.searchIngredient.toLowerCase())
   );
-
   if (!filtered.length) {
     list.innerHTML = `<div class="emptyState">No hay ingredientes registrados todavía.</div>`;
     return;
   }
-
   filtered.forEach((item) => {
     const card = document.createElement("article");
     card.className = `entityCard ${item.id === state.selectedIngredientId ? "active" : ""}`;
@@ -448,10 +413,19 @@ function renderIngredientList() {
           <h3>${safe(item.name)}</h3>
           <div class="entityMeta">${toNumber(item.presentation)} ${safe(item.unit)} · ${money(item.price)}</div>
         </div>
-        <span class="tag">${item.category === "base" ? "materiales" : safe(item.category)}</span>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="tag">${item.category === "base" ? "materiales" : safe(item.category)}</span>
+          <button class="iconBtn iconBtnDanger" type="button" 
+            data-delete-ing-id="${item.id}" 
+            style="padding:4px 8px; font-size:12px; margin-left:8px; cursor:pointer;"
+            title="Eliminar ingrediente">
+            🗑️
+          </button>
+        </div>
       </div>
     `;
-    card.addEventListener("click", () => {
+    card.addEventListener("click", (e) => {
+      if (e.target.closest("[data-delete-ing-id]")) return;
       state.selectedIngredientId = item.id;
       fillIngredientForm(item);
       renderIngredientList();
@@ -486,8 +460,6 @@ function clearIngredientForm() {
 }
 
 function saveIngredient() {
-  const isEditing = !!state.selectedIngredientId;
-
   const payload = {
     id: state.selectedIngredientId || uid("ing"),
     name: safe($("#ingredientName")?.value),
@@ -497,73 +469,52 @@ function saveIngredient() {
     price: toNumber($("#ingredientPrice")?.value),
     notes: safe($("#ingredientNotes")?.value)
   };
-
   if (!payload.name || payload.presentation <= 0 || !payload.unit || payload.price <= 0) {
     alert("Completa bien todos los campos del ingrediente.");
     return;
   }
-
   const exists = state.ingredients.findIndex((x) => x.id === payload.id);
-
   if (exists >= 0) {
     state.ingredients[exists] = payload;
     syncIngredientSnapshots(payload);
-    state.selectedIngredientId = payload.id;
-    saveAll(true);
-    renderPage();
-    fillIngredientForm(payload);
     showToast("Ingrediente actualizado ✅");
   } else {
     state.ingredients.unshift(payload);
-    saveAll(true);
-    renderPage();
-    clearIngredientForm();
     showToast("Ingrediente guardado ✅");
   }
-
-  if (!isEditing) {
-    clearIngredientForm();
-  }
+  saveAll(true);
+  renderPage();
+  clearIngredientForm();
 }
 
 function removeIngredient() {
   const item = getSelectedIngredient();
   if (!item) {
-    alert("Selecciona un ingrediente para eliminar.");
+    showToast("Selecciona un ingrediente primero ⚠️");
     return;
   }
-
   const usedInCBRC = state.cbrc.some((cbrc) => cbrc.items.some((row) => row.ingredientId === item.id));
   const usedInRecipes = state.recipes.some((recipe) =>
     [...recipe.baseRows, ...recipe.decorRows, ...recipe.presentRows].some((row) => row.ingredientId === item.id)
   );
-
   if (usedInCBRC || usedInRecipes) {
     alert("No puedes eliminar este ingrediente porque ya está usado en Costos RyC o Recetas.");
     return;
   }
-
   requestDelete("ingredient", item.id, item.name);
 }
-
-/* =========================
-   CBRC
-   ========================= */
 
 function renderCBRCList() {
   const list = $("#cbrcList");
   if (!list) return;
   list.innerHTML = "";
-
   const filtered = state.cbrc.filter((item) =>
     safe(item.name).toLowerCase().includes(state.searchCBRC.toLowerCase())
   );
-
   if (!filtered.length) {
     list.innerHTML = `<div class="emptyState">No hay recetas de Costos RyC todavía.</div>`;
     return;
   }
-
   filtered.forEach((item) => {
     const total = calcCBRCTotal(item);
     const card = document.createElement("article");
@@ -588,65 +539,28 @@ function renderCBRCList() {
 function renderMobileRows(containerId, rows, sectionType) {
   const container = document.getElementById(containerId);
   if (!container) return;
-
   container.classList.remove("hidden");
   container.innerHTML = "";
-
   if (!rows.length) {
     container.innerHTML = `<div class="emptyState">No hay ingredientes en esta sección.</div>`;
     return;
   }
-
   rows.forEach((row, index) => {
     const el = document.createElement("article");
     el.className = "mobileRowCard";
     el.innerHTML = `
       <div class="mobileRowTitle">${safe(row.name)}</div>
-
       <div class="mobileRowMeta">
-        <div class="mobileRowMetaItem">
-          <span>Presentación</span>
-          ${toNumber(row.presentation)}
+        <div class="mobileRowMetaItem"><span>Presentación</span>${toNumber(row.presentation)}</div>
+        <div class="mobileRowMetaItem"><span>Unidad</span>${safe(row.unit)}</div>
+        <div class="mobileRowMetaItem"><span>Precio base</span>${money(row.price)}</div>
+        <div class="mobileRowMetaItem"><span>Cantidad usada</span>
+          <input class="rowQtyInput" type="number" min="0" step="0.01" value="${toNumber(row.qty)}" data-mobile-section="${sectionType}" data-mobile-index="${index}">
         </div>
-
-        <div class="mobileRowMetaItem">
-          <span>Unidad</span>
-          ${safe(row.unit)}
-        </div>
-
-        <div class="mobileRowMetaItem">
-          <span>Precio base</span>
-          ${money(row.price)}
-        </div>
-
-        <div class="mobileRowMetaItem">
-          <span>Cantidad usada</span>
-          <input
-            class="rowQtyInput"
-            type="number"
-            min="0"
-            step="0.01"
-            value="${toNumber(row.qty)}"
-            data-mobile-section="${sectionType}"
-            data-mobile-index="${index}"
-          >
-        </div>
-
-        <div class="mobileRowMetaItem">
-          <span>Costo</span>
-          ${money(calcRowCost(row))}
-        </div>
+        <div class="mobileRowMetaItem"><span>Costo</span>${money(calcRowCost(row))}</div>
       </div>
-
       <div class="mobileRowActions">
-        <button
-          class="iconBtn iconBtnDanger"
-          type="button"
-          data-mobile-remove-section="${sectionType}"
-          data-mobile-remove-index="${index}"
-        >
-          Eliminar
-        </button>
+        <button class="iconBtn iconBtnDanger" type="button" data-mobile-remove-section="${sectionType}" data-mobile-remove-index="${index}">Eliminar</button>
       </div>
     `;
     container.appendChild(el);
@@ -656,25 +570,16 @@ function renderMobileRows(containerId, rows, sectionType) {
 function renderCBRCEditor() {
   const cbrc = getSelectedCBRC();
   if (!cbrc) return;
-
   if ($("#cbrcName")) $("#cbrcName").value = cbrc.name || "";
   if ($("#cbrcType")) $("#cbrcType").value = cbrc.type || "relleno";
   if ($("#cbrcYield")) $("#cbrcYield").value = cbrc.yieldAmount || "";
   if ($("#cbrcYieldUnit")) $("#cbrcYieldUnit").value = cbrc.yieldUnit || "";
   if ($("#cbrcNotes")) $("#cbrcNotes").value = cbrc.notes || "";
-
   const tbody = $("#cbrcItemsBody");
   if (tbody) {
     tbody.innerHTML = "";
-
     if (!cbrc.items.length) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="7">
-            <div class="emptyState">No hay ingredientes en este Costos RyC.</div>
-          </td>
-        </tr>
-      `;
+      tbody.innerHTML = `<tr><td colspan="7"><div class="emptyState">No hay ingredientes en este Costos RyC.</div></td></tr>`;
     } else {
       cbrc.items.forEach((row, index) => {
         const tr = document.createElement("tr");
@@ -683,9 +588,7 @@ function renderCBRCEditor() {
           <td>${toNumber(row.presentation)}</td>
           <td>${safe(row.unit)}</td>
           <td>${money(row.price)}</td>
-          <td>
-            <input class="rowQtyInput" type="number" min="0" step="0.01" value="${toNumber(row.qty)}" data-cbrc-row="${index}" />
-          </td>
+          <td><input class="rowQtyInput" type="number" min="0" step="0.01" value="${toNumber(row.qty)}" data-cbrc-row="${index}" /></td>
           <td><span class="rowCost">${money(calcRowCost(row))}</span></td>
           <td><button class="iconBtn iconBtnDanger" type="button" data-remove-cbrc-row="${index}">✕</button></td>
         `;
@@ -693,30 +596,24 @@ function renderCBRCEditor() {
       });
     }
   }
-
   renderMobileRows("cbrcItemsCards", cbrc.items, "cbrc");
-
   const total = calcCBRCTotal(cbrc);
   const perUnit = calcCBRCUnitCost(cbrc);
-
   if ($("#cbrcSubtotal")) $("#cbrcSubtotal").textContent = money(total);
   if ($("#sumCBRCYield")) $("#sumCBRCYield").textContent = `${toNumber(cbrc.yieldAmount)} ${safe(cbrc.yieldUnit)}`;
   if ($("#sumCBRCTotal")) $("#sumCBRCTotal").textContent = money(total);
   if ($("#sumCBRCPerUnit")) $("#sumCBRCPerUnit").textContent = money(perUnit);
-
   renderCBRCList();
 }
 
 function updateSelectedCBRCFromFields() {
   const cbrc = getSelectedCBRC();
   if (!cbrc) return;
-
   cbrc.name = safe($("#cbrcName")?.value);
   cbrc.type = safe($("#cbrcType")?.value);
   cbrc.yieldAmount = toNumber($("#cbrcYield")?.value);
   cbrc.yieldUnit = safe($("#cbrcYieldUnit")?.value);
   cbrc.notes = safe($("#cbrcNotes")?.value);
-
   saveAll(true);
   renderCBRCEditor();
 }
@@ -743,14 +640,9 @@ function duplicateCBRC() {
   showToast("Costos RyC duplicado ✅");
 }
 
-/* =========================
-   LISTA DE PRECIOS
-   ========================= */
-
 function getCBRCOptionsByType(type, selectedId = "") {
   const items = state.cbrc.filter((x) => x.type === type);
   const placeholder = type === "relleno" ? "Seleccionar relleno" : "Seleccionar cobertura";
-
   return `
     <option value="">-- ${placeholder} --</option>
     ${items.map((item) => `
@@ -761,11 +653,9 @@ function getCBRCOptionsByType(type, selectedId = "") {
 
 function getLPFilteredItems() {
   const search = state.searchLP.toLowerCase();
-
   return state.lp.filter((item) => {
     const rellenoName = safe(getCBRCById(item.rellenoCBRCId)?.name);
     const coberturaName = safe(getCBRCById(item.coberturaCBRCId)?.name);
-
     return [
       safe(item.name),
       safe(item.size),
@@ -778,7 +668,6 @@ function getLPFilteredItems() {
 function updateLPMobileTitle(lpId) {
   const lp = state.lp.find((x) => x.id === lpId);
   if (!lp) return;
-
   const title = document.querySelector(`#lpMobileCards [data-lp-card-id="${lpId}"] .mobileRowTitle`);
   if (title) title.textContent = safe(lp.name) || "Nueva fila";
 }
@@ -786,24 +675,19 @@ function updateLPMobileTitle(lpId) {
 function renderLPSummary(items = state.lp) {
   const countEl = $("#lpSummaryCount");
   const totalEl = $("#lpSummaryGrandTotal");
-
   if (countEl) countEl.textContent = items.length;
-
   if (totalEl) {
     const grandTotal = items.reduce((acc, item) => acc + calcLPTotal(item), 0);
     totalEl.textContent = money(grandTotal);
   }
-
   const selected = state.lp[0] || null;
   const relleno = selected ? calcLPPartCost(selected.rellenoCBRCId, selected.rellenoQty) : 0;
   const cobertura = selected ? calcLPPartCost(selected.coberturaCBRCId, selected.coberturaQty) : 0;
   const total = relleno + cobertura;
-
   if ($("#sumLPSize")) $("#sumLPSize").textContent = safe(selected?.size) || "-";
   if ($("#sumLPRelleno")) $("#sumLPRelleno").textContent = money(relleno);
   if ($("#sumLPCobertura")) $("#sumLPCobertura").textContent = money(cobertura);
   if ($("#sumLPFinal")) $("#sumLPFinal").textContent = money(total);
-
   if ($("#lpCostRelleno")) $("#lpCostRelleno").textContent = money(relleno);
   if ($("#lpCostCobertura")) $("#lpCostCobertura").textContent = money(cobertura);
   if ($("#lpCostTotal")) $("#lpCostTotal").textContent = money(total);
@@ -812,14 +696,10 @@ function renderLPSummary(items = state.lp) {
 function renderLPTable() {
   const tbody = $("#lpTableBody");
   const mobile = $("#lpMobileCards");
-
   if (!tbody) return;
-
   tbody.innerHTML = "";
   if (mobile) mobile.innerHTML = "";
-
   const filtered = getLPFilteredItems();
-
   if (!filtered.length) {
     tbody.innerHTML = `
       <tr>
@@ -828,202 +708,118 @@ function renderLPTable() {
         </td>
       </tr>
     `;
-
     if (mobile) {
       mobile.innerHTML = `<div class="emptyState">No hay filas en Lista de Precios.</div>`;
     }
-
     renderLPSummary(filtered);
     return;
   }
-
   filtered.forEach((item) => {
     const rellenoCost = calcLPPartCost(item.rellenoCBRCId, item.rellenoQty);
     const coberturaCost = calcLPPartCost(item.coberturaCBRCId, item.coberturaQty);
     const total = rellenoCost + coberturaCost;
-
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>
-        <input
-          type="text"
-          placeholder="Nombre"
-          value="${safe(item.name)}"
-          data-lp-id="${item.id}"
-          data-lp-field="name"
-        />
+        <input type="text" placeholder="Nombre" value="${safe(item.name)}" data-lp-id="${item.id}" data-lp-field="name" />
       </td>
-
       <td>
-        <input
-          type="text"
-          placeholder="Ej: 26 cm"
-          value="${safe(item.size)}"
-          data-lp-id="${item.id}"
-          data-lp-field="size"
-        />
+        <input type="text" placeholder="Ej: 26 cm" value="${safe(item.size)}" data-lp-id="${item.id}" data-lp-field="size" />
       </td>
-
       <td>
         <select data-lp-id="${item.id}" data-lp-field="rellenoCBRCId">
           ${getCBRCOptionsByType("relleno", item.rellenoCBRCId)}
         </select>
       </td>
-
       <td>
-        <input
-          type="number"
-          min="0"
-          step="0.01"
-          value="${toNumber(item.rellenoQty)}"
-          data-lp-id="${item.id}"
-          data-lp-field="rellenoQty"
-        />
+        <input type="number" min="0" step="0.01" value="${toNumber(item.rellenoQty)}" data-lp-id="${item.id}" data-lp-field="rellenoQty" />
       </td>
-
       <td class="lpCellCost">${money(rellenoCost)}</td>
-
       <td>
         <select data-lp-id="${item.id}" data-lp-field="coberturaCBRCId">
           ${getCBRCOptionsByType("cobertura", item.coberturaCBRCId)}
         </select>
       </td>
-
       <td>
-        <input
-          type="number"
-          min="0"
-          step="0.01"
-          value="${toNumber(item.coberturaQty)}"
-          data-lp-id="${item.id}"
-          data-lp-field="coberturaQty"
-        />
+        <input type="number" min="0" step="0.01" value="${toNumber(item.coberturaQty)}" data-lp-id="${item.id}" data-lp-field="coberturaQty" />
       </td>
-
       <td class="lpCellCost">${money(coberturaCost)}</td>
       <td class="lpCellCost">${money(total)}</td>
-
       <td>
         <button class="lpDeleteBtn" type="button" data-delete-lp-id="${item.id}">✕</button>
       </td>
     `;
     tbody.appendChild(tr);
-
     if (mobile) {
       const card = document.createElement("article");
       card.className = "mobileRowCard";
       card.setAttribute("data-lp-card-id", item.id);
-
       card.innerHTML = `
         <div class="mobileRowTitle">${safe(item.name) || "Nueva fila"}</div>
-
         <div class="mobileRowMeta">
           <div class="mobileRowMetaItem" style="grid-column:1 / -1;">
             <span>Nombre</span>
-            <input
-              type="text"
-              placeholder="Ej: Torta 26 cm"
-              value="${safe(item.name)}"
-              data-lp-id="${item.id}"
-              data-lp-field="name"
-            />
+            <input type="text" placeholder="Ej: Torta 26 cm" value="${safe(item.name)}" data-lp-id="${item.id}" data-lp-field="name" />
           </div>
-
           <div class="mobileRowMetaItem">
             <span>Tamaño</span>
-            <input
-              type="text"
-              placeholder="Ej: 26 cm"
-              value="${safe(item.size)}"
-              data-lp-id="${item.id}"
-              data-lp-field="size"
-            />
+            <input type="text" placeholder="Ej: 26 cm" value="${safe(item.size)}" data-lp-id="${item.id}" data-lp-field="size" />
           </div>
-
           <div class="mobileRowMetaItem">
             <span>Relleno</span>
             <select data-lp-id="${item.id}" data-lp-field="rellenoCBRCId">
               ${getCBRCOptionsByType("relleno", item.rellenoCBRCId)}
             </select>
           </div>
-
           <div class="mobileRowMetaItem">
             <span>Cant. relleno</span>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value="${toNumber(item.rellenoQty)}"
-              data-lp-id="${item.id}"
-              data-lp-field="rellenoQty"
-            />
+            <input type="number" min="0" step="0.01" value="${toNumber(item.rellenoQty)}" data-lp-id="${item.id}" data-lp-field="rellenoQty" />
           </div>
-
           <div class="mobileRowMetaItem">
             <span>Costo relleno</span>
             <b>${money(rellenoCost)}</b>
           </div>
-
           <div class="mobileRowMetaItem">
             <span>Cobertura</span>
             <select data-lp-id="${item.id}" data-lp-field="coberturaCBRCId">
               ${getCBRCOptionsByType("cobertura", item.coberturaCBRCId)}
             </select>
           </div>
-
           <div class="mobileRowMetaItem">
             <span>Cant. cobertura</span>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value="${toNumber(item.coberturaQty)}"
-              data-lp-id="${item.id}"
-              data-lp-field="coberturaQty"
-            />
+            <input type="number" min="0" step="0.01" value="${toNumber(item.coberturaQty)}" data-lp-id="${item.id}" data-lp-field="coberturaQty" />
           </div>
-
           <div class="mobileRowMetaItem">
             <span>Costo cobertura</span>
             <b>${money(coberturaCost)}</b>
           </div>
-
           <div class="mobileRowMetaItem" style="grid-column:1 / -1;">
             <span>Total</span>
             <b>${money(total)}</b>
           </div>
         </div>
-
         <div class="mobileRowActions">
-          <button class="iconBtn iconBtnDanger" type="button" data-delete-lp-id="${item.id}">
-            Eliminar
-          </button>
+          <button class="iconBtn iconBtnDanger" type="button" data-delete-lp-id="${item.id}">Eliminar</button>
         </div>
       `;
-
       mobile.appendChild(card);
     }
   });
-
   renderLPSummary(filtered);
 }
 
 function updateLPField(lpId, field, value) {
   const lp = state.lp.find((x) => x.id === lpId);
   if (!lp) return;
-
   if (field === "rellenoQty" || field === "coberturaQty") {
     lp[field] = toNumber(value);
   } else {
     lp[field] = value;
   }
-
   saveAll(true);
-
   if (field === "name") {
     updateLPMobileTitle(lpId);
   }
-
   renderLPSummary(getLPFilteredItems());
 }
 
@@ -1051,25 +847,18 @@ function duplicateLP() {
   showToast("Lista de Precios duplicada ✅");
 }
 
-/* =========================
-   RECETAS
-   ========================= */
-
 function renderRecipeCBRCOptions() {
   const rellenoSelect = $("#recipeRellenoCBRC");
   const coberturaSelect = $("#recipeCoberturaCBRC");
   if (!rellenoSelect || !coberturaSelect) return;
-
   rellenoSelect.innerHTML = `<option value="">-- Seleccionar relleno --</option>`;
   coberturaSelect.innerHTML = `<option value="">-- Seleccionar cobertura --</option>`;
-
   state.cbrc.filter((x) => x.type === "relleno").forEach((item) => {
     const option = document.createElement("option");
     option.value = item.id;
     option.textContent = item.name;
     rellenoSelect.appendChild(option);
   });
-
   state.cbrc.filter((x) => x.type === "cobertura").forEach((item) => {
     const option = document.createElement("option");
     option.value = item.id;
@@ -1082,16 +871,13 @@ function renderRecipeList() {
   const list = $("#recipeList");
   if (!list) return;
   list.innerHTML = "";
-
   const filtered = state.recipes.filter((item) =>
     safe(item.name).toLowerCase().includes(state.searchRecipe.toLowerCase())
   );
-
   if (!filtered.length) {
     list.innerHTML = `<div class="emptyState">No hay recetas todavía.</div>`;
     return;
   }
-
   filtered.forEach((item) => {
     const totals = calcRecipeTotals(item);
     const card = document.createElement("article");
@@ -1117,7 +903,6 @@ function renderSimpleRecipeRows(rows, tbodyId, sectionName, cardsId) {
   const tbody = document.getElementById(tbodyId);
   if (tbody) {
     tbody.innerHTML = "";
-
     if (!rows.length) {
       tbody.innerHTML = `
         <tr>
@@ -1144,16 +929,13 @@ function renderSimpleRecipeRows(rows, tbodyId, sectionName, cardsId) {
       });
     }
   }
-
   renderMobileRows(cardsId, rows, sectionName);
 }
 
 function renderRecipeEditor() {
   const recipe = getSelectedRecipe();
   if (!recipe) return;
-
   renderRecipeCBRCOptions();
-
   if ($("#recipeName")) $("#recipeName").value = recipe.name || "";
   if ($("#recipeSize")) $("#recipeSize").value = recipe.size || "";
   if ($("#recipeCategory")) $("#recipeCategory").value = recipe.category || "tortas";
@@ -1167,34 +949,27 @@ function renderRecipeEditor() {
   if ($("#recipeCoberturaCBRC")) $("#recipeCoberturaCBRC").value = recipe.coberturaCBRCId || "";
   if ($("#recipeCoberturaQty")) $("#recipeCoberturaQty").value = recipe.coberturaQty || "";
   if ($("#manualTopperPrice")) $("#manualTopperPrice").value = recipe.manualTopper || "";
-
   const relleno = getCBRCById(recipe.rellenoCBRCId);
   const cobertura = getCBRCById(recipe.coberturaCBRCId);
-
   if ($("#recipeRellenoMeta")) {
     $("#recipeRellenoMeta").textContent = relleno
       ? `${safe(relleno.name)} · ${toNumber(recipe.rellenoQty)} ${safe(relleno.yieldUnit)} · ${money(calcLPPartCost(recipe.rellenoCBRCId, recipe.rellenoQty))}`
       : "No hay relleno seleccionado.";
   }
-
   if ($("#recipeCoberturaMeta")) {
     $("#recipeCoberturaMeta").textContent = cobertura
       ? `${safe(cobertura.name)} · ${toNumber(recipe.coberturaQty)} ${safe(cobertura.yieldUnit)} · ${money(calcLPPartCost(recipe.coberturaCBRCId, recipe.coberturaQty))}`
       : "No hay cobertura seleccionada.";
   }
-
   renderSimpleRecipeRows(recipe.baseRows, "recipeBaseBody", "baseRows", "recipeBaseCards");
   renderSimpleRecipeRows(recipe.decorRows, "recipeDecorBody", "decorRows", "recipeDecorCards");
   renderSimpleRecipeRows(recipe.presentRows, "recipePresentBody", "presentRows", "recipePresentCards");
-
   const totals = calcRecipeTotals(recipe);
-
   if ($("#recipeSubtotalBase")) $("#recipeSubtotalBase").textContent = money(totals.base);
   if ($("#recipeSubtotalRelleno")) $("#recipeSubtotalRelleno").textContent = money(totals.relleno);
   if ($("#recipeSubtotalCobertura")) $("#recipeSubtotalCobertura").textContent = money(totals.cobertura);
   if ($("#recipeSubtotalDecor")) $("#recipeSubtotalDecor").textContent = money(totals.decor);
   if ($("#recipeSubtotalPresent")) $("#recipeSubtotalPresent").textContent = money(totals.present);
-
   if ($("#sumRecipeBase")) $("#sumRecipeBase").textContent = money(totals.base);
   if ($("#sumRecipeRelleno")) $("#sumRecipeRelleno").textContent = money(totals.relleno);
   if ($("#sumRecipeCobertura")) $("#sumRecipeCobertura").textContent = money(totals.cobertura);
@@ -1206,14 +981,12 @@ function renderRecipeEditor() {
   if ($("#sumRecipeOriginal")) $("#sumRecipeOriginal").textContent = money(totals.original);
   if ($("#sumRecipeFinal")) $("#sumRecipeFinal").textContent = money(totals.final);
   if ($("#sumRecipePerServing")) $("#sumRecipePerServing").textContent = money(totals.perServing);
-
   renderRecipeList();
 }
 
 function updateSelectedRecipeFromFields() {
   const recipe = getSelectedRecipe();
   if (!recipe) return;
-
   recipe.name = safe($("#recipeName")?.value);
   recipe.size = safe($("#recipeSize")?.value);
   recipe.category = safe($("#recipeCategory")?.value);
@@ -1227,7 +1000,6 @@ function updateSelectedRecipeFromFields() {
   recipe.coberturaCBRCId = safe($("#recipeCoberturaCBRC")?.value);
   recipe.coberturaQty = toNumber($("#recipeCoberturaQty")?.value);
   recipe.manualTopper = toNumber($("#manualTopperPrice")?.value);
-
   saveAll(true);
   renderRecipeEditor();
 }
@@ -1254,10 +1026,6 @@ function duplicateRecipe() {
   showToast("Receta duplicada ✅");
 }
 
-/* =========================
-   PICKER
-   ========================= */
-
 function openIngredientPicker(context) {
   state.pickerContext = context;
   state.pickerIngredient = null;
@@ -1274,11 +1042,9 @@ function renderPickerList() {
   const list = $("#pickerList");
   if (!list) return;
   list.innerHTML = "";
-
   let filtered = state.ingredients.filter((item) =>
     safe(item.name).toLowerCase().includes(state.searchPicker.toLowerCase())
   );
-
   if (state.pickerContext === "base") {
     filtered = filtered.filter((x) => x.category === "base" || x.category === "otros");
   }
@@ -1288,18 +1054,15 @@ function renderPickerList() {
   if (state.pickerContext === "present") {
     filtered = filtered.filter((x) => x.category === "presentacion" || x.category === "otros");
   }
-
   if (state.pickerContext === "cbrc") {
     filtered = state.ingredients.filter((item) =>
       safe(item.name).toLowerCase().includes(state.searchPicker.toLowerCase())
     );
   }
-
   if (!filtered.length) {
     list.innerHTML = `<div class="emptyState">No encontré ingredientes.</div>`;
     return;
   }
-
   filtered.forEach((item) => {
     const card = document.createElement("article");
     card.className = "entityCard";
@@ -1331,7 +1094,6 @@ function confirmPickerQuantity() {
     alert("Indica una cantidad válida.");
     return;
   }
-
   const row = {
     ingredientId: item.id,
     name: item.name,
@@ -1340,9 +1102,7 @@ function confirmPickerQuantity() {
     price: item.price,
     qty
   };
-
   const page = document.body.dataset.page;
-
   if (page === "cbrc") {
     const cbrc = getSelectedCBRC();
     if (!cbrc) return;
@@ -1351,7 +1111,6 @@ function confirmPickerQuantity() {
     renderCBRCEditor();
     showToast("Ingrediente añadido ✅");
   }
-
   if (page === "recetas") {
     const recipe = getSelectedRecipe();
     if (!recipe) return;
@@ -1362,31 +1121,22 @@ function confirmPickerQuantity() {
     renderRecipeEditor();
     showToast("Ingrediente añadido ✅");
   }
-
   state.pickerIngredient = null;
   closeModal("quantityModal");
 }
 
-/* =========================
-   RENDER GENERAL
-   ========================= */
-
 function renderPage() {
   const page = document.body.dataset.page;
-
   if (page === "ingredientes") {
     renderIngredientList();
   }
-
   if (page === "cbrc") {
     renderCBRCList();
     renderCBRCEditor();
   }
-
   if (page === "lp") {
     renderLPTable();
   }
-
   if (page === "recetas") {
     renderRecipeList();
     renderRecipeEditor();
@@ -1402,18 +1152,12 @@ function initMobileBottomNav() {
     lp: "lp",
     recetas: "recetas"
   };
-
   const current = navMap[page];
   if (!current) return;
-
   $$(".mobileBottomNavItem").forEach((item) => {
     item.classList.toggle("active", item.dataset.nav === current);
   });
 }
-
-/* =========================
-   EVENTOS COMUNES
-   ========================= */
 
 function bindCommonEvents() {
   const btnGuardar = $("#btnGuardarTodo");
@@ -1422,24 +1166,20 @@ function bindCommonEvents() {
       saveAll();
     });
   }
-
   const btnGuardarHome = $("#btnGuardarTodoHome");
   if (btnGuardarHome) {
     btnGuardarHome.addEventListener("click", () => {
       saveAll();
     });
   }
-
   const btnExportBackup = $("#btnExportBackup");
   if (btnExportBackup) {
     btnExportBackup.addEventListener("click", exportBackup);
   }
-
   const btnExportBackupHome = $("#btnExportBackupHome");
   if (btnExportBackupHome) {
     btnExportBackupHome.addEventListener("click", exportBackup);
   }
-
   const inputImportBackup = $("#inputImportBackup");
   if (inputImportBackup) {
     inputImportBackup.addEventListener("change", (e) => {
@@ -1449,7 +1189,6 @@ function bindCommonEvents() {
       e.target.value = "";
     });
   }
-
   const inputImportBackupHome = $("#inputImportBackupHome");
   if (inputImportBackupHome) {
     inputImportBackupHome.addEventListener("change", (e) => {
@@ -1459,30 +1198,15 @@ function bindCommonEvents() {
       e.target.value = "";
     });
   }
-
-  const btnCancelDelete = $("#btnCancelDelete");
-  if (btnCancelDelete) {
-    btnCancelDelete.addEventListener("click", () => {
-      closeModal("deleteModal");
-      state.deleteContext = null;
-    });
-  }
-
-  const btnConfirmDelete = $("#btnConfirmDelete");
-  if (btnConfirmDelete) {
-    btnConfirmDelete.addEventListener("click", confirmDelete);
-  }
-
+  // ✅ REMOVED: btnCancelDelete y btnConfirmDelete ya no son necesarios con confirm()
   const btnCancelQuantity = $("#btnCancelQuantity");
   if (btnCancelQuantity) {
     btnCancelQuantity.addEventListener("click", () => closeModal("quantityModal"));
   }
-
   const btnConfirmQuantity = $("#btnConfirmQuantity");
   if (btnConfirmQuantity) {
     btnConfirmQuantity.addEventListener("click", confirmPickerQuantity);
   }
-
   const pickerSearch = $("#pickerSearch");
   if (pickerSearch) {
     pickerSearch.addEventListener("input", (e) => {
@@ -1490,44 +1214,40 @@ function bindCommonEvents() {
       renderPickerList();
     });
   }
-
   $$("[data-close]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      closeModal(btn.dataset.close);
-      if (btn.dataset.close === "deleteModal") {
-        state.deleteContext = null;
-      }
-    });
+    btn.addEventListener("click", () => closeModal(btn.dataset.close));
   });
-
-  ["pickerModal", "quantityModal", "deleteModal"].forEach((id) => {
+  ["pickerModal", "quantityModal"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener("click", (e) => {
-        if (e.target.id === id) {
-          closeModal(id);
-          if (id === "deleteModal") state.deleteContext = null;
-        }
+        if (e.target.id === id) closeModal(id);
       });
     }
   });
-
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
-    ["pickerModal", "quantityModal", "deleteModal"].forEach((id) => {
+    ["pickerModal", "quantityModal"].forEach((id) => {
       const el = document.getElementById(id);
-      if (el && el.classList.contains("show")) {
-        closeModal(id);
-        if (id === "deleteModal") state.deleteContext = null;
-      }
+      if (el && el.classList.contains("show")) closeModal(id);
     });
   });
 
   document.addEventListener("click", (e) => {
+    // ✅ FIX: Eliminar ingrediente directo desde lista
+    const deleteIngBtn = e.target.closest("[data-delete-ing-id]");
+    if (deleteIngBtn) {
+      const ingId = deleteIngBtn.dataset.deleteIngId;
+      const item = state.ingredients.find(x => x.id === ingId);
+      if (item) {
+        requestDelete("ingredient", ingId, item.name);
+      }
+      return;
+    }
+
     const removeCBRCRow = e.target.closest("[data-remove-cbrc-row]");
     if (removeCBRCRow) {
       const item = getSelectedCBRC();
-      if (!item) return;
       const index = toNumber(removeCBRCRow.dataset.removeCbrcRow);
       item.items.splice(index, 1);
       saveAll(true);
@@ -1539,7 +1259,6 @@ function bindCommonEvents() {
     const removeRecipeRow = e.target.closest("[data-remove-recipe-row-section]");
     if (removeRecipeRow) {
       const recipe = getSelectedRecipe();
-      if (!recipe) return;
       const section = removeRecipeRow.dataset.removeRecipeRowSection;
       const index = toNumber(removeRecipeRow.dataset.removeRecipeRowIndex);
       recipe[section].splice(index, 1);
@@ -1553,19 +1272,15 @@ function bindCommonEvents() {
     if (removeMobile) {
       const section = removeMobile.dataset.mobileRemoveSection;
       const index = toNumber(removeMobile.dataset.mobileRemoveIndex);
-
       if (section === "cbrc") {
         const cbrc = getSelectedCBRC();
-        if (!cbrc) return;
         cbrc.items.splice(index, 1);
         saveAll(true);
         renderCBRCEditor();
         showToast("Ingrediente eliminado ✅");
         return;
       }
-
       const recipe = getSelectedRecipe();
-      if (!recipe) return;
       recipe[section].splice(index, 1);
       saveAll(true);
       renderRecipeEditor();
@@ -1585,18 +1300,15 @@ function bindCommonEvents() {
     const cbrcRow = e.target.closest("[data-cbrc-row]");
     if (cbrcRow) {
       const item = getSelectedCBRC();
-      if (!item) return;
       const index = toNumber(cbrcRow.dataset.cbrcRow);
       item.items[index].qty = toNumber(cbrcRow.value);
       saveAll(true);
       renderCBRCEditor();
       return;
     }
-
     const recipeRow = e.target.closest("[data-recipe-row-section]");
     if (recipeRow) {
       const recipe = getSelectedRecipe();
-      if (!recipe) return;
       const section = recipeRow.dataset.recipeRowSection;
       const index = toNumber(recipeRow.dataset.recipeRowIndex);
       recipe[section][index].qty = toNumber(recipeRow.value);
@@ -1604,23 +1316,18 @@ function bindCommonEvents() {
       renderRecipeEditor();
       return;
     }
-
     const mobileRow = e.target.closest("[data-mobile-section]");
     if (mobileRow) {
       const section = mobileRow.dataset.mobileSection;
       const index = toNumber(mobileRow.dataset.mobileIndex);
-
       if (section === "cbrc") {
         const cbrc = getSelectedCBRC();
-        if (!cbrc) return;
         cbrc.items[index].qty = toNumber(mobileRow.value);
         saveAll(true);
         renderCBRCEditor();
         return;
       }
-
       const recipe = getSelectedRecipe();
-      if (!recipe) return;
       recipe[section][index].qty = toNumber(mobileRow.value);
       saveAll(true);
       renderRecipeEditor();
@@ -1628,10 +1335,6 @@ function bindCommonEvents() {
     }
   });
 }
-
-/* =========================
-   BIND POR PÁGINA
-   ========================= */
 
 function bindIngredientesPage() {
   const ingredientSearch = $("#ingredientSearch");
@@ -1641,13 +1344,10 @@ function bindIngredientesPage() {
       renderIngredientList();
     });
   }
-
   const btnSaveIngredient = $("#btnSaveIngredient");
   if (btnSaveIngredient) btnSaveIngredient.addEventListener("click", saveIngredient);
-
   const btnClearIngredient = $("#btnClearIngredient");
   if (btnClearIngredient) btnClearIngredient.addEventListener("click", clearIngredientForm);
-
   const btnDeleteIngredient = $("#btnDeleteIngredient");
   if (btnDeleteIngredient) btnDeleteIngredient.addEventListener("click", removeIngredient);
 }
@@ -1660,13 +1360,10 @@ function bindCBRCPage() {
       renderCBRCList();
     });
   }
-
   const btnNewCBRC = $("#btnNewCBRC");
   if (btnNewCBRC) btnNewCBRC.addEventListener("click", createCBRC);
-
   const btnDuplicateCBRC = $("#btnDuplicateCBRC");
   if (btnDuplicateCBRC) btnDuplicateCBRC.addEventListener("click", duplicateCBRC);
-
   const btnDeleteCBRC = $("#btnDeleteCBRC");
   if (btnDeleteCBRC) {
     btnDeleteCBRC.addEventListener("click", () => {
@@ -1675,15 +1372,12 @@ function bindCBRCPage() {
       requestDelete("cbrc", item.id, item.name);
     });
   }
-
   ["#cbrcName", "#cbrcYield", "#cbrcYieldUnit", "#cbrcNotes"].forEach((selector) => {
     const el = $(selector);
     if (el) el.addEventListener("input", updateSelectedCBRCFromFields);
   });
-
   const cbrcType = $("#cbrcType");
   if (cbrcType) cbrcType.addEventListener("change", updateSelectedCBRCFromFields);
-
   const btnAddIngredientToCBRC = $("#btnAddIngredientToCBRC");
   if (btnAddIngredientToCBRC) {
     btnAddIngredientToCBRC.addEventListener("click", () => openIngredientPicker("cbrc"));
@@ -1698,10 +1392,8 @@ function bindLPPage() {
       renderLPTable();
     });
   }
-
   const btnNewLP = $("#btnNewLP");
   if (btnNewLP) btnNewLP.addEventListener("click", createLP);
-
   const btnDuplicateLP = $("#btnDuplicateLP");
   if (btnDuplicateLP) {
     btnDuplicateLP.addEventListener("click", () => {
@@ -1713,7 +1405,6 @@ function bindLPPage() {
       duplicateLP();
     });
   }
-
   const btnDeleteLP = $("#btnDeleteLP");
   if (btnDeleteLP) {
     btnDeleteLP.addEventListener("click", () => {
@@ -1722,22 +1413,21 @@ function bindLPPage() {
       requestDelete("lp", first.id, safe(first.name) || safe(first.size) || "Fila de lista");
     });
   }
-
   const desktop = $("#lpTableBody");
   if (desktop) {
     desktop.addEventListener("input", (e) => {
       const field = e.target.closest("[data-lp-id][data-lp-field]");
       if (!field) return;
       updateLPField(field.dataset.lpId, field.dataset.lpField, field.value);
+      if (field.dataset.lpField === "name") return;
+      if (field.dataset.lpField === "size") return;
     });
-
     desktop.addEventListener("change", (e) => {
       const field = e.target.closest("[data-lp-id][data-lp-field]");
       if (!field) return;
       updateLPField(field.dataset.lpId, field.dataset.lpField, field.value);
       renderLPTable();
     });
-
     desktop.addEventListener("blur", (e) => {
       const field = e.target.closest("[data-lp-id][data-lp-field]");
       if (!field) return;
@@ -1745,7 +1435,6 @@ function bindLPPage() {
       renderLPTable();
     }, true);
   }
-
   const mobile = $("#lpMobileCards");
   if (mobile) {
     mobile.addEventListener("input", (e) => {
@@ -1753,14 +1442,12 @@ function bindLPPage() {
       if (!field) return;
       updateLPField(field.dataset.lpId, field.dataset.lpField, field.value);
     });
-
     mobile.addEventListener("change", (e) => {
       const field = e.target.closest("[data-lp-id][data-lp-field]");
       if (!field) return;
       updateLPField(field.dataset.lpId, field.dataset.lpField, field.value);
       renderLPTable();
     });
-
     mobile.addEventListener("blur", (e) => {
       const field = e.target.closest("[data-lp-id][data-lp-field]");
       if (!field) return;
@@ -1778,13 +1465,10 @@ function bindRecetasPage() {
       renderRecipeList();
     });
   }
-
   const btnNewRecipe = $("#btnNewRecipe");
   if (btnNewRecipe) btnNewRecipe.addEventListener("click", createRecipe);
-
   const btnDuplicateRecipe = $("#btnDuplicateRecipe");
   if (btnDuplicateRecipe) btnDuplicateRecipe.addEventListener("click", duplicateRecipe);
-
   const btnDeleteRecipe = $("#btnDeleteRecipe");
   if (btnDeleteRecipe) {
     btnDeleteRecipe.addEventListener("click", () => {
@@ -1793,44 +1477,31 @@ function bindRecetasPage() {
       requestDelete("recipe", item.id, item.name);
     });
   }
-
   ["#recipeName", "#recipeSize", "#recipeServings", "#recipeLabor", "#recipeDelivery", "#recipeMargin", "#recipeNotes", "#recipeRellenoQty", "#recipeCoberturaQty", "#manualTopperPrice"].forEach((selector) => {
     const el = $(selector);
     if (el) el.addEventListener("input", updateSelectedRecipeFromFields);
   });
-
   const recipeCategory = $("#recipeCategory");
   if (recipeCategory) recipeCategory.addEventListener("change", updateSelectedRecipeFromFields);
-
   const recipeRellenoCBRC = $("#recipeRellenoCBRC");
   if (recipeRellenoCBRC) recipeRellenoCBRC.addEventListener("change", updateSelectedRecipeFromFields);
-
   const recipeCoberturaCBRC = $("#recipeCoberturaCBRC");
   if (recipeCoberturaCBRC) recipeCoberturaCBRC.addEventListener("change", updateSelectedRecipeFromFields);
-
   const btnAddBaseToRecipe = $("#btnAddBaseToRecipe");
   if (btnAddBaseToRecipe) btnAddBaseToRecipe.addEventListener("click", () => openIngredientPicker("base"));
-
   const btnAddDecorToRecipe = $("#btnAddDecorToRecipe");
   if (btnAddDecorToRecipe) btnAddDecorToRecipe.addEventListener("click", () => openIngredientPicker("decor"));
-
   const btnAddPresentToRecipe = $("#btnAddPresentToRecipe");
   if (btnAddPresentToRecipe) btnAddPresentToRecipe.addEventListener("click", () => openIngredientPicker("present"));
 }
-
-/* =========================
-   INIT
-   ========================= */
 
 function initData() {
   state.ingredients = readStorage(STORAGE.ingredients, []);
   state.cbrc = readStorage(STORAGE.cbrc, [createEmptyCBRC()]);
   state.lp = readStorage(STORAGE.lp, []);
   state.recipes = readStorage(STORAGE.recipes, [createEmptyRecipe()]).map(ensureRecipe);
-
   if (!state.cbrc.length) state.cbrc = [createEmptyCBRC()];
   if (!state.recipes.length) state.recipes = [createEmptyRecipe()];
-
   state.selectedCBRCId = state.cbrc[0]?.id || null;
   state.selectedLPId = state.lp[0]?.id || null;
   state.selectedRecipeId = state.recipes[0]?.id || null;
@@ -1839,14 +1510,11 @@ function initData() {
 function init() {
   initData();
   bindCommonEvents();
-
   const page = document.body.dataset.page;
-
   if (page === "ingredientes") bindIngredientesPage();
   if (page === "cbrc") bindCBRCPage();
   if (page === "lp") bindLPPage();
   if (page === "recetas") bindRecetasPage();
-
   renderPage();
   initMobileBottomNav();
 }
@@ -1859,13 +1527,10 @@ if ("serviceWorker" in navigator) {
       const registration = await navigator.serviceWorker.register("./service-worker.js", {
         scope: "./"
       });
-
       console.log("Service worker registrado:", registration);
-
       if (registration.waiting) {
         console.log("Hay un service worker esperando activarse.");
       }
-
       registration.addEventListener("updatefound", () => {
         console.log("Nuevo service worker encontrado.");
       });
@@ -1874,56 +1539,3 @@ if ("serviceWorker" in navigator) {
     }
   });
 }
-/* =========================================================
-   PARCHE FINAL - ARREGLAR ELIMINAR INGREDIENTE
-   PEGAR AL FINAL DE app.js
-========================================================= */
-
-(function () {
-  function removeIngredientFixed() {
-    const item = getSelectedIngredient();
-
-    if (!item) {
-      alert("Selecciona un ingrediente para eliminar.");
-      return;
-    }
-
-    const usedInCBRC = state.cbrc.some((cbrc) =>
-      (cbrc.items || []).some((row) => row.ingredientId === item.id)
-    );
-
-    const usedInRecipes = state.recipes.some((recipe) =>
-      [
-        ...(recipe.baseRows || []),
-        ...(recipe.decorRows || []),
-        ...(recipe.presentRows || [])
-      ].some((row) => row.ingredientId === item.id)
-    );
-
-    if (usedInCBRC || usedInRecipes) {
-      alert("No puedes eliminar este ingrediente porque ya está usado en Costos RyC o Recetas.");
-      return;
-    }
-
-    requestDelete("ingredient", item.id, item.name);
-  }
-
-  // Reemplaza la función global
-  window.removeIngredient = removeIngredientFixed;
-
-  document.addEventListener("DOMContentLoaded", () => {
-    const btnDeleteIngredient = document.getElementById("btnDeleteIngredient");
-
-    if (btnDeleteIngredient) {
-      // elimina posibles eventos anteriores clonando el botón
-      const newBtn = btnDeleteIngredient.cloneNode(true);
-      btnDeleteIngredient.parentNode.replaceChild(newBtn, btnDeleteIngredient);
-
-      newBtn.addEventListener("click", function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        removeIngredientFixed();
-      });
-    }
-  });
-})();
