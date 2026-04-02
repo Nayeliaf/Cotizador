@@ -232,15 +232,73 @@ function closeModal(id) {
   document.body.style.overflow = "";
 }
 
-// ✅ FIX: Usar confirm() nativo en lugar de modal
-function requestDelete(type, id, label) {
-  if (confirm(`¿Estás seguro de eliminar "${label}"?`)) {
-    state.deleteContext = { type, id };
-    confirmDelete();
+/* =========================
+   MODAL DE CONFIRMACIÓN PERSONALIZADO
+   ========================= */
+
+let confirmCallback = null;
+
+function showCustomConfirm(title, message, callback) {
+  const modal = $("#customConfirmModal");
+  const titleEl = $("#customConfirmTitle");
+  const messageEl = $("#customConfirmMessage");
+  const btnOk = $("#customConfirmOk");
+  const btnCancel = $("#customConfirmCancel");
+  
+  if (!modal) {
+    if (confirm(`${title}\n\n${message}`)) {
+      callback();
+    }
+    return;
   }
+  
+  titleEl.textContent = title;
+  messageEl.textContent = message;
+  confirmCallback = callback;
+  
+  modal.classList.add("show");
+  
+  const handleOk = () => {
+    modal.classList.remove("show");
+    if (confirmCallback) confirmCallback();
+    confirmCallback = null;
+    cleanup();
+  };
+  
+  const handleCancel = () => {
+    modal.classList.remove("show");
+    confirmCallback = null;
+    cleanup();
+  };
+  
+  const cleanup = () => {
+    btnOk?.removeEventListener("click", handleOk);
+    btnCancel?.removeEventListener("click", handleCancel);
+    modal.removeEventListener("click", handleOutside);
+  };
+  
+  btnOk?.addEventListener("click", handleOk);
+  btnCancel?.addEventListener("click", handleCancel);
+  
+  const handleOutside = (e) => {
+    if (e.target === modal) {
+      handleCancel();
+    }
+  };
+  modal.addEventListener("click", handleOutside, { once: true });
 }
 
-// ✅ FIX: No depender de closeModal para deleteModal
+function requestDelete(type, id, label) {
+  showCustomConfirm(
+    "¿Estás seguro que deseas eliminarlo?",
+    "Esta acción no se puede deshacer",
+    () => {
+      state.deleteContext = { type, id };
+      confirmDelete();
+    }
+  );
+}
+
 function confirmDelete() {
   const ctx = state.deleteContext;
   if (!ctx) return;
@@ -249,7 +307,11 @@ function confirmDelete() {
     const usedInLP = state.lp.some((x) => x.rellenoCBRCId === ctx.id || x.coberturaCBRCId === ctx.id);
     const usedInRecipes = state.recipes.some((x) => x.rellenoCBRCId === ctx.id || x.coberturaCBRCId === ctx.id);
     if (usedInLP || usedInRecipes) {
-      alert("No puedes eliminar este Costos RyC porque ya está usado en Lista de Precios o Recetas.");
+      showCustomConfirm(
+        "⚠️ No se puede eliminar",
+        "Este Costos RyC ya está usado en Lista de Precios o Recetas.",
+        () => {}
+      );
       state.deleteContext = null;
       return;
     }
@@ -306,6 +368,7 @@ function syncIngredientSnapshots(item) {
   });
 }
 
+// ✅ FIX: Agregada la clave "data": con comillas
 function buildBackupPayload() {
   return {
     app: "Essencia Bakery",
@@ -349,8 +412,9 @@ function exportBackup() {
       JSON.stringify(payload, null, 2)
     );
     showToast("Respaldo exportado ✅");
-  } catch {
-    alert("No pude exportar el respaldo.");
+  } catch (err) {
+    console.error(err);
+    alert("No pude exportar el respaldo: " + err.message);
   }
 }
 
@@ -498,7 +562,11 @@ function removeIngredient() {
     [...recipe.baseRows, ...recipe.decorRows, ...recipe.presentRows].some((row) => row.ingredientId === item.id)
   );
   if (usedInCBRC || usedInRecipes) {
-    alert("No puedes eliminar este ingrediente porque ya está usado en Costos RyC o Recetas.");
+    showCustomConfirm(
+      "⚠️ No se puede eliminar",
+      "Este ingrediente ya está usado en Costos RyC o Recetas.",
+      () => {}
+    );
     return;
   }
   requestDelete("ingredient", item.id, item.name);
@@ -1198,7 +1266,6 @@ function bindCommonEvents() {
       e.target.value = "";
     });
   }
-  // ✅ REMOVED: btnCancelDelete y btnConfirmDelete ya no son necesarios con confirm()
   const btnCancelQuantity = $("#btnCancelQuantity");
   if (btnCancelQuantity) {
     btnCancelQuantity.addEventListener("click", () => closeModal("quantityModal"));
@@ -1234,7 +1301,6 @@ function bindCommonEvents() {
   });
 
   document.addEventListener("click", (e) => {
-    // ✅ FIX: Eliminar ingrediente directo desde lista
     const deleteIngBtn = e.target.closest("[data-delete-ing-id]");
     if (deleteIngBtn) {
       const ingId = deleteIngBtn.dataset.deleteIngId;
@@ -1520,6 +1586,158 @@ function init() {
 }
 
 document.addEventListener("DOMContentLoaded", init);
+/* =========================
+   EXPORTACIÓN FORZADA PARA WEBINTOAPP
+   ========================= */
+
+function exportBackupForzado() {
+  try {
+    const payload = buildBackupPayload();
+    const date = new Date();
+    const stamp = [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, "0"),
+      String(date.getDate()).padStart(2, "0"),
+      "-",
+      String(date.getHours()).padStart(2, "0"),
+      String(date.getMinutes()).padStart(2, "0")
+    ].join("");
+    
+    const filename = `essencia-respaldo-${stamp}.json`;
+    const content = JSON.stringify(payload, null, 2);
+    const mimeType = "application/json";
+    
+    console.log("🚀 Iniciando descarga forzada:", filename);
+    
+    // MÉTODO 1: window.location con data URI
+    try {
+      console.log("📥 Método 1: window.location");
+      const dataUri = "data:" + mimeType + ";charset=utf-8," + encodeURIComponent(content);
+      window.location.href = dataUri;
+      showToast("✅ Descargando...");
+      setTimeout(() => showToast("✅ Revisa Descargas"), 2000);
+      return;
+    } catch (e1) {
+      console.error("❌ Método 1 falló:", e1);
+    }
+    
+    // MÉTODO 2: Nueva ventana/pestaña
+    try {
+      console.log("📥 Método 2: window.open");
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const newWindow = window.open(url, "_blank");
+      if (!newWindow) {
+        window.location.href = url;
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      showToast("✅ Descargando...");
+      return;
+    } catch (e2) {
+      console.error("❌ Método 2 falló:", e2);
+    }
+    
+    // MÉTODO 3: Iframe oculto con download
+    try {
+      console.log("📥 Método 3: iframe");
+      const iframe = document.createElement("iframe");
+      iframe.style.display = "none";
+      iframe.sandbox = "allow-downloads";
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      iframe.src = url;
+      document.body.appendChild(iframe);
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+        URL.revokeObjectURL(url);
+      }, 3000);
+      showToast("✅ Descargando...");
+      return;
+    } catch (e3) {
+      console.error("❌ Método 3 falló:", e3);
+    }
+    
+    // MÉTODO 4: Link con target="_blank"
+    try {
+      console.log("📥 Método 4: link target blank");
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 3000);
+      showToast("✅ Descargando...");
+      return;
+    } catch (e4) {
+      console.error("❌ Método 4 falló:", e4);
+    }
+    
+    // MÉTODO 5: Forzar descarga con fetch
+    try {
+      console.log("📥 Método 5: fetch blob");
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      fetch(url)
+        .then(response => response.blob())
+        .then(blob => {
+          const downloadUrl = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = downloadUrl;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(downloadUrl);
+          }, 3000);
+        });
+      URL.revokeObjectURL(url);
+      showToast("✅ Descargando...");
+      return;
+    } catch (e5) {
+      console.error("❌ Método 5 falló:", e5);
+    }
+    
+    // MÉTODO 6: Última opción - prompt para copiar
+    console.log("📋 Método 6: copiar al portapapeles");
+    showToast("⚠️ Copia el respaldo");
+    setTimeout(() => {
+      const copyText = prompt("COPIA TU RESPALDO (Ctrl+C):", content);
+      if (copyText !== null) {
+        showToast("✅ Respaldo guardado");
+      }
+    }, 500);
+    
+  } catch (err) {
+    console.error("💥 Error crítico en exportación:", err);
+    alert("Error al exportar: " + err.message);
+  }
+}
+
+// Reemplazar el evento del botón Exportar
+document.addEventListener("DOMContentLoaded", () => {
+  const btnExport = $("#btnExportBackup");
+  const btnExportHome = $("#btnExportBackupHome");
+  
+  if (btnExport) {
+    btnExport.removeEventListener("click", exportBackup);
+    btnExport.addEventListener("click", exportBackupForzado);
+  }
+  
+  if (btnExportHome) {
+    btnExportHome.removeEventListener("click", exportBackup);
+    btnExportHome.addEventListener("click", exportBackupForzado);
+  }
+});
+
+console.log("✅ Sistema de exportación forzada activado");
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
