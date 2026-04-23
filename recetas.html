@@ -12,6 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
 </head>
+
 <!-- Modal de Confirmación Personalizado -->
 <div id="customConfirmModal" class="custom-modal">
   <div class="custom-modal-content">
@@ -68,7 +69,7 @@
         <div class="sectionHead">
           <div>
             <h2>Datos generales</h2>
-            <p>La receta final se trabaja aquí.</p>
+            <p>Añade la receta aquí.</p>
           </div>
 
           <div class="toolbarActions">
@@ -161,12 +162,14 @@
       <section class="card sectionSpacer">
         <div class="sectionHead">
           <div>
-            <h2>Relleno</h2>
-            <p>Selecciona el CBRC y ajusta la cantidad manualmente.</p>
+            <h2>Rellenos</h2>
+            <p>Puedes agregar uno o varios rellenos y ajustar la cantidad manualmente.</p>
           </div>
+          <button class="btn btnGhost" type="button" id="btnAddRellenoToRecipe">+ Añadir relleno</button>
         </div>
 
-        <div class="selectorBox">
+        <!-- Compatibilidad con código anterior -->
+        <div class="selectorBox hidden" aria-hidden="true" style="display:none;">
           <div class="formGrid">
             <div>
               <label for="recipeRellenoCBRC">CBRC Relleno</label>
@@ -177,12 +180,30 @@
               <input id="recipeRellenoQty" type="number" min="0" step="0.01" />
             </div>
           </div>
-
           <div class="selectorMeta" id="recipeRellenoMeta">No hay relleno seleccionado.</div>
         </div>
 
+        <div class="mobileCardsList hidden" id="recipeRellenoCards"></div>
+
+        <div class="tableWrap desktopTableWrap">
+          <table class="costTable">
+            <thead>
+              <tr>
+                <th>CBRC</th>
+                <th>Rendimiento</th>
+                <th>Unidad</th>
+                <th>Costo base</th>
+                <th>Cantidad usada</th>
+                <th>Costo</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="recipeRellenoBody"></tbody>
+          </table>
+        </div>
+
         <div class="blockFooter">
-          <span>Subtotal relleno</span>
+          <span>Subtotal rellenos</span>
           <b id="recipeSubtotalRelleno">$0.00</b>
         </div>
       </section>
@@ -190,12 +211,14 @@
       <section class="card sectionSpacer">
         <div class="sectionHead">
           <div>
-            <h2>Cobertura</h2>
-            <p>Selecciona el CBRC y ajusta la cantidad manualmente.</p>
+            <h2>Coberturas</h2>
+            <p>Puedes agregar una o varias coberturas y ajustar la cantidad manualmente.</p>
           </div>
+          <button class="btn btnGhost" type="button" id="btnAddCoberturaToRecipe">+ Añadir cobertura</button>
         </div>
 
-        <div class="selectorBox">
+        <!-- Compatibilidad con código anterior -->
+        <div class="selectorBox hidden" aria-hidden="true" style="display:none;">
           <div class="formGrid">
             <div>
               <label for="recipeCoberturaCBRC">CBRC Cobertura</label>
@@ -210,8 +233,27 @@
           <div class="selectorMeta" id="recipeCoberturaMeta">No hay cobertura seleccionada.</div>
         </div>
 
+        <div class="mobileCardsList hidden" id="recipeCoberturaCards"></div>
+
+        <div class="tableWrap desktopTableWrap">
+          <table class="costTable">
+            <thead>
+              <tr>
+                <th>CBRC</th>
+                <th>Rendimiento</th>
+                <th>Unidad</th>
+                <th>Costo base</th>
+                <th>Cantidad usada</th>
+                <th>Costo</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="recipeCoberturaBody"></tbody>
+          </table>
+        </div>
+
         <div class="blockFooter">
-          <span>Subtotal cobertura</span>
+          <span>Subtotal coberturas</span>
           <b id="recipeSubtotalCobertura">$0.00</b>
         </div>
       </section>

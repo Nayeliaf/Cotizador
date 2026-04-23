@@ -116,6 +116,14 @@ function createEmptyLP() {
   };
 }
 
+function createRecipeAddonRow(prefix = "addon") {
+  return {
+    id: uid(prefix),
+    cbrcId: "",
+    qty: 0
+  };
+}
+
 function createEmptyRecipe() {
   return {
     id: uid("recipe"),
@@ -131,11 +139,22 @@ function createEmptyRecipe() {
     rellenoQty: 0,
     coberturaCBRCId: "",
     coberturaQty: 0,
+    rellenos: [],
+    coberturas: [],
     manualTopper: 0,
     baseRows: [],
     decorRows: [],
     presentRows: []
   };
+}
+
+function normalizeRecipeAddonRows(rows = [], prefix = "addon") {
+  if (!Array.isArray(rows)) return [];
+  return rows.map((row) => ({
+    id: safe(row?.id) || uid(prefix),
+    cbrcId: safe(row?.cbrcId),
+    qty: toNumber(row?.qty)
+  }));
 }
 
 function ensureRecipe(recipe) {
@@ -144,6 +163,31 @@ function ensureRecipe(recipe) {
   if (!Array.isArray(recipe.presentRows)) recipe.presentRows = [];
   if (typeof recipe.manualTopper === "undefined") recipe.manualTopper = 0;
   if (typeof recipe.margin === "undefined") recipe.margin = 30;
+
+  recipe.rellenos = normalizeRecipeAddonRows(recipe.rellenos, "rel");
+  recipe.coberturas = normalizeRecipeAddonRows(recipe.coberturas, "cob");
+
+  if (!recipe.rellenos.length && (safe(recipe.rellenoCBRCId) || toNumber(recipe.rellenoQty) > 0)) {
+    recipe.rellenos.push({
+      id: uid("rel"),
+      cbrcId: safe(recipe.rellenoCBRCId),
+      qty: toNumber(recipe.rellenoQty)
+    });
+  }
+
+  if (!recipe.coberturas.length && (safe(recipe.coberturaCBRCId) || toNumber(recipe.coberturaQty) > 0)) {
+    recipe.coberturas.push({
+      id: uid("cob"),
+      cbrcId: safe(recipe.coberturaCBRCId),
+      qty: toNumber(recipe.coberturaQty)
+    });
+  }
+
+  recipe.rellenoCBRCId = safe(recipe.rellenos[0]?.cbrcId);
+  recipe.rellenoQty = toNumber(recipe.rellenos[0]?.qty);
+  recipe.coberturaCBRCId = safe(recipe.coberturas[0]?.cbrcId);
+  recipe.coberturaQty = toNumber(recipe.coberturas[0]?.qty);
+
   return recipe;
 }
 
@@ -196,6 +240,14 @@ function calcLPPartCost(cbrcId, qty) {
   return calcCBRCUnitCost(cbrc) * toNumber(qty);
 }
 
+function calcRecipeAddonRowCost(row) {
+  return calcLPPartCost(row?.cbrcId, row?.qty);
+}
+
+function calcRecipeAddonRowsTotal(rows = []) {
+  return rows.reduce((acc, row) => acc + calcRecipeAddonRowCost(row), 0);
+}
+
 function calcLPTotal(lp) {
   return calcLPPartCost(lp.rellenoCBRCId, lp.rellenoQty) +
          calcLPPartCost(lp.coberturaCBRCId, lp.coberturaQty);
@@ -203,8 +255,8 @@ function calcLPTotal(lp) {
 
 function calcRecipeTotals(recipe) {
   const base = calcRowsTotal(recipe.baseRows);
-  const relleno = calcLPPartCost(recipe.rellenoCBRCId, recipe.rellenoQty);
-  const cobertura = calcLPPartCost(recipe.coberturaCBRCId, recipe.coberturaQty);
+  const relleno = calcRecipeAddonRowsTotal(recipe.rellenos);
+  const cobertura = calcRecipeAddonRowsTotal(recipe.coberturas);
   const decor = calcRowsTotal(recipe.decorRows) + toNumber(recipe.manualTopper);
   const present = calcRowsTotal(recipe.presentRows);
   const materials = base + relleno + cobertura + decor + present;
@@ -293,7 +345,7 @@ function requestDelete(type, id, label) {
     "¿Estás seguro que deseas eliminarlo?",
     "Esta acción no se puede deshacer",
     () => {
-      state.deleteContext = { type, id };
+      state.deleteContext = { type, id, label };
       confirmDelete();
     }
   );
@@ -305,7 +357,16 @@ function confirmDelete() {
 
   if (ctx.type === "cbrc") {
     const usedInLP = state.lp.some((x) => x.rellenoCBRCId === ctx.id || x.coberturaCBRCId === ctx.id);
-    const usedInRecipes = state.recipes.some((x) => x.rellenoCBRCId === ctx.id || x.coberturaCBRCId === ctx.id);
+    const usedInRecipes = state.recipes.some((x) => {
+      const rellenos = Array.isArray(x.rellenos) ? x.rellenos : [];
+      const coberturas = Array.isArray(x.coberturas) ? x.coberturas : [];
+      return (
+        x.rellenoCBRCId === ctx.id ||
+        x.coberturaCBRCId === ctx.id ||
+        rellenos.some((row) => row.cbrcId === ctx.id) ||
+        coberturas.some((row) => row.cbrcId === ctx.id)
+      );
+    });
     if (usedInLP || usedInRecipes) {
       showCustomConfirm(
         "⚠️ No se puede eliminar",
@@ -368,7 +429,6 @@ function syncIngredientSnapshots(item) {
   });
 }
 
-// ✅ FIX: Agregada la clave "data": con comillas
 function buildBackupPayload() {
   return {
     app: "Essencia Bakery",
@@ -710,9 +770,12 @@ function duplicateCBRC() {
 
 function getCBRCOptionsByType(type, selectedId = "") {
   const items = state.cbrc.filter((x) => x.type === type);
+  const selected = getCBRCById(selectedId);
   const placeholder = type === "relleno" ? "Seleccionar relleno" : "Seleccionar cobertura";
+  const needsForeignOption = selectedId && selected && !items.some((item) => item.id === selectedId);
   return `
     <option value="">-- ${placeholder} --</option>
+    ${needsForeignOption ? `<option value="${selected.id}" selected>${safe(selected.name)} (tipo cambiado)</option>` : ""}
     ${items.map((item) => `
       <option value="${item.id}" ${item.id === selectedId ? "selected" : ""}>${safe(item.name)}</option>
     `).join("")}
@@ -935,13 +998,21 @@ function renderRecipeCBRCOptions() {
   });
 }
 
+function getRecipeCBRCOptions(type, selectedId = "") {
+  return getCBRCOptionsByType(type, selectedId);
+}
+
+function getRecipeFilteredItems() {
+  return state.recipes.filter((item) =>
+    safe(item.name).toLowerCase().includes(state.searchRecipe.toLowerCase())
+  );
+}
+
 function renderRecipeList() {
   const list = $("#recipeList");
   if (!list) return;
   list.innerHTML = "";
-  const filtered = state.recipes.filter((item) =>
-    safe(item.name).toLowerCase().includes(state.searchRecipe.toLowerCase())
-  );
+  const filtered = getRecipeFilteredItems();
   if (!filtered.length) {
     list.innerHTML = `<div class="emptyState">No hay recetas todavía.</div>`;
     return;
@@ -1000,10 +1071,90 @@ function renderSimpleRecipeRows(rows, tbodyId, sectionName, cardsId) {
   renderMobileRows(cardsId, rows, sectionName);
 }
 
+function renderRecipeAddonRows(rows, tbodyId, cardsId, sectionName, type) {
+  const tbody = document.getElementById(tbodyId);
+  const labelPlural = type === "relleno" ? "rellenos" : "coberturas";
+
+  if (tbody) {
+    tbody.innerHTML = "";
+    if (!rows.length) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7">
+            <div class="emptyState">No hay ${labelPlural} en esta receta.</div>
+          </td>
+        </tr>
+      `;
+    } else {
+      rows.forEach((row, index) => {
+        const cbrc = getCBRCById(row.cbrcId);
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>
+            <select data-recipe-cbrc-section="${sectionName}" data-recipe-cbrc-index="${index}" data-recipe-cbrc-field="cbrcId">
+              ${getRecipeCBRCOptions(type, row.cbrcId)}
+            </select>
+          </td>
+          <td>${cbrc ? toNumber(cbrc.yieldAmount) : "-"}</td>
+          <td>${cbrc ? safe(cbrc.yieldUnit) : "-"}</td>
+          <td>${cbrc ? money(calcCBRCTotal(cbrc)) : money(0)}</td>
+          <td>
+            <input type="number" min="0" step="0.01" value="${toNumber(row.qty)}" data-recipe-cbrc-section="${sectionName}" data-recipe-cbrc-index="${index}" data-recipe-cbrc-field="qty">
+          </td>
+          <td>${money(calcRecipeAddonRowCost(row))}</td>
+          <td><button class="iconBtn iconBtnDanger" type="button" data-remove-recipe-row-section="${sectionName}" data-remove-recipe-row-index="${index}">✕</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+  }
+
+  const cards = document.getElementById(cardsId);
+  if (!cards) return;
+  cards.classList.remove("hidden");
+  cards.innerHTML = "";
+
+  if (!rows.length) {
+    cards.innerHTML = `<div class="emptyState">No hay ${labelPlural} en esta receta.</div>`;
+    return;
+  }
+
+  rows.forEach((row, index) => {
+    const cbrc = getCBRCById(row.cbrcId);
+    const card = document.createElement("article");
+    card.className = "mobileRowCard";
+    card.innerHTML = `
+      <div class="mobileRowTitle">${safe(cbrc?.name) || (type === "relleno" ? "Nuevo relleno" : "Nueva cobertura")}</div>
+      <div class="mobileRowMeta">
+        <div class="mobileRowMetaItem" style="grid-column:1 / -1;">
+          <span>${type === "relleno" ? "Relleno" : "Cobertura"}</span>
+          <select data-recipe-cbrc-section="${sectionName}" data-recipe-cbrc-index="${index}" data-recipe-cbrc-field="cbrcId">
+            ${getRecipeCBRCOptions(type, row.cbrcId)}
+          </select>
+        </div>
+        <div class="mobileRowMetaItem"><span>Rendimiento</span>${cbrc ? toNumber(cbrc.yieldAmount) : "-"}</div>
+        <div class="mobileRowMetaItem"><span>Unidad</span>${cbrc ? safe(cbrc.yieldUnit) : "-"}</div>
+        <div class="mobileRowMetaItem"><span>Costo base</span>${cbrc ? money(calcCBRCTotal(cbrc)) : money(0)}</div>
+        <div class="mobileRowMetaItem">
+          <span>Cantidad usada</span>
+          <input type="number" min="0" step="0.01" value="${toNumber(row.qty)}" data-recipe-cbrc-section="${sectionName}" data-recipe-cbrc-index="${index}" data-recipe-cbrc-field="qty">
+        </div>
+        <div class="mobileRowMetaItem"><span>Costo</span>${money(calcRecipeAddonRowCost(row))}</div>
+      </div>
+      <div class="mobileRowActions">
+        <button class="iconBtn iconBtnDanger" type="button" data-mobile-remove-section="${sectionName}" data-mobile-remove-index="${index}">Eliminar</button>
+      </div>
+    `;
+    cards.appendChild(card);
+  });
+}
+
 function renderRecipeEditor() {
   const recipe = getSelectedRecipe();
   if (!recipe) return;
+  ensureRecipe(recipe);
   renderRecipeCBRCOptions();
+
   if ($("#recipeName")) $("#recipeName").value = recipe.name || "";
   if ($("#recipeSize")) $("#recipeSize").value = recipe.size || "";
   if ($("#recipeCategory")) $("#recipeCategory").value = recipe.category || "tortas";
@@ -1012,26 +1163,30 @@ function renderRecipeEditor() {
   if ($("#recipeDelivery")) $("#recipeDelivery").value = recipe.delivery || "";
   if ($("#recipeMargin")) $("#recipeMargin").value = recipe.margin || "";
   if ($("#recipeNotes")) $("#recipeNotes").value = recipe.notes || "";
-  if ($("#recipeRellenoCBRC")) $("#recipeRellenoCBRC").value = recipe.rellenoCBRCId || "";
-  if ($("#recipeRellenoQty")) $("#recipeRellenoQty").value = recipe.rellenoQty || "";
-  if ($("#recipeCoberturaCBRC")) $("#recipeCoberturaCBRC").value = recipe.coberturaCBRCId || "";
-  if ($("#recipeCoberturaQty")) $("#recipeCoberturaQty").value = recipe.coberturaQty || "";
   if ($("#manualTopperPrice")) $("#manualTopperPrice").value = recipe.manualTopper || "";
-  const relleno = getCBRCById(recipe.rellenoCBRCId);
-  const cobertura = getCBRCById(recipe.coberturaCBRCId);
+
+  if ($("#recipeRellenoCBRC")) $("#recipeRellenoCBRC").value = recipe.rellenos[0]?.cbrcId || "";
+  if ($("#recipeRellenoQty")) $("#recipeRellenoQty").value = recipe.rellenos[0]?.qty || "";
+  if ($("#recipeCoberturaCBRC")) $("#recipeCoberturaCBRC").value = recipe.coberturas[0]?.cbrcId || "";
+  if ($("#recipeCoberturaQty")) $("#recipeCoberturaQty").value = recipe.coberturas[0]?.qty || "";
+
   if ($("#recipeRellenoMeta")) {
-    $("#recipeRellenoMeta").textContent = relleno
-      ? `${safe(relleno.name)} · ${toNumber(recipe.rellenoQty)} ${safe(relleno.yieldUnit)} · ${money(calcLPPartCost(recipe.rellenoCBRCId, recipe.rellenoQty))}`
+    $("#recipeRellenoMeta").textContent = recipe.rellenos.length
+      ? `${recipe.rellenos.length} relleno(s) añadido(s).`
       : "No hay relleno seleccionado.";
   }
   if ($("#recipeCoberturaMeta")) {
-    $("#recipeCoberturaMeta").textContent = cobertura
-      ? `${safe(cobertura.name)} · ${toNumber(recipe.coberturaQty)} ${safe(cobertura.yieldUnit)} · ${money(calcLPPartCost(recipe.coberturaCBRCId, recipe.coberturaQty))}`
+    $("#recipeCoberturaMeta").textContent = recipe.coberturas.length
+      ? `${recipe.coberturas.length} cobertura(s) añadida(s).`
       : "No hay cobertura seleccionada.";
   }
+
   renderSimpleRecipeRows(recipe.baseRows, "recipeBaseBody", "baseRows", "recipeBaseCards");
+  renderRecipeAddonRows(recipe.rellenos, "recipeRellenoBody", "recipeRellenoCards", "rellenos", "relleno");
+  renderRecipeAddonRows(recipe.coberturas, "recipeCoberturaBody", "recipeCoberturaCards", "coberturas", "cobertura");
   renderSimpleRecipeRows(recipe.decorRows, "recipeDecorBody", "decorRows", "recipeDecorCards");
   renderSimpleRecipeRows(recipe.presentRows, "recipePresentBody", "presentRows", "recipePresentCards");
+
   const totals = calcRecipeTotals(recipe);
   if ($("#recipeSubtotalBase")) $("#recipeSubtotalBase").textContent = money(totals.base);
   if ($("#recipeSubtotalRelleno")) $("#recipeSubtotalRelleno").textContent = money(totals.relleno);
@@ -1055,6 +1210,7 @@ function renderRecipeEditor() {
 function updateSelectedRecipeFromFields() {
   const recipe = getSelectedRecipe();
   if (!recipe) return;
+  ensureRecipe(recipe);
   recipe.name = safe($("#recipeName")?.value);
   recipe.size = safe($("#recipeSize")?.value);
   recipe.category = safe($("#recipeCategory")?.value);
@@ -1063,11 +1219,11 @@ function updateSelectedRecipeFromFields() {
   recipe.delivery = toNumber($("#recipeDelivery")?.value);
   recipe.margin = toNumber($("#recipeMargin")?.value);
   recipe.notes = safe($("#recipeNotes")?.value);
-  recipe.rellenoCBRCId = safe($("#recipeRellenoCBRC")?.value);
-  recipe.rellenoQty = toNumber($("#recipeRellenoQty")?.value);
-  recipe.coberturaCBRCId = safe($("#recipeCoberturaCBRC")?.value);
-  recipe.coberturaQty = toNumber($("#recipeCoberturaQty")?.value);
   recipe.manualTopper = toNumber($("#manualTopperPrice")?.value);
+  recipe.rellenoCBRCId = safe(recipe.rellenos[0]?.cbrcId);
+  recipe.rellenoQty = toNumber(recipe.rellenos[0]?.qty);
+  recipe.coberturaCBRCId = safe(recipe.coberturas[0]?.cbrcId);
+  recipe.coberturaQty = toNumber(recipe.coberturas[0]?.qty);
   saveAll(true);
   renderRecipeEditor();
 }
@@ -1087,11 +1243,48 @@ function duplicateRecipe() {
   const copy = clone(recipe);
   copy.id = uid("recipe");
   copy.name = `${safe(recipe.name)} (copia)`;
+  copy.rellenos = normalizeRecipeAddonRows(copy.rellenos, "rel").map((row) => ({ ...row, id: uid("rel") }));
+  copy.coberturas = normalizeRecipeAddonRows(copy.coberturas, "cob").map((row) => ({ ...row, id: uid("cob") }));
   state.recipes.unshift(copy);
   state.selectedRecipeId = copy.id;
   saveAll(true);
   renderPage();
   showToast("Receta duplicada ✅");
+}
+
+function addRecipeAddonRow(type) {
+  const recipe = getSelectedRecipe();
+  if (!recipe) return;
+  ensureRecipe(recipe);
+  if (type === "relleno") {
+    recipe.rellenos.push(createRecipeAddonRow("rel"));
+  }
+  if (type === "cobertura") {
+    recipe.coberturas.push(createRecipeAddonRow("cob"));
+  }
+  recipe.rellenoCBRCId = safe(recipe.rellenos[0]?.cbrcId);
+  recipe.rellenoQty = toNumber(recipe.rellenos[0]?.qty);
+  recipe.coberturaCBRCId = safe(recipe.coberturas[0]?.cbrcId);
+  recipe.coberturaQty = toNumber(recipe.coberturas[0]?.qty);
+  saveAll(true);
+  renderRecipeEditor();
+  showToast(type === "relleno" ? "Relleno añadido ✅" : "Cobertura añadida ✅");
+}
+
+function updateRecipeAddonField(section, index, field, value) {
+  const recipe = getSelectedRecipe();
+  if (!recipe || !Array.isArray(recipe[section]) || !recipe[section][index]) return;
+  if (field === "qty") {
+    recipe[section][index].qty = toNumber(value);
+  } else {
+    recipe[section][index][field] = safe(value);
+  }
+  recipe.rellenoCBRCId = safe(recipe.rellenos[0]?.cbrcId);
+  recipe.rellenoQty = toNumber(recipe.rellenos[0]?.qty);
+  recipe.coberturaCBRCId = safe(recipe.coberturas[0]?.cbrcId);
+  recipe.coberturaQty = toNumber(recipe.coberturas[0]?.qty);
+  saveAll(true);
+  renderRecipeEditor();
 }
 
 function openIngredientPicker(context) {
@@ -1304,7 +1497,7 @@ function bindCommonEvents() {
     const deleteIngBtn = e.target.closest("[data-delete-ing-id]");
     if (deleteIngBtn) {
       const ingId = deleteIngBtn.dataset.deleteIngId;
-      const item = state.ingredients.find(x => x.id === ingId);
+      const item = state.ingredients.find((x) => x.id === ingId);
       if (item) {
         requestDelete("ingredient", ingId, item.name);
       }
@@ -1327,10 +1520,15 @@ function bindCommonEvents() {
       const recipe = getSelectedRecipe();
       const section = removeRecipeRow.dataset.removeRecipeRowSection;
       const index = toNumber(removeRecipeRow.dataset.removeRecipeRowIndex);
+      if (!recipe || !Array.isArray(recipe[section])) return;
       recipe[section].splice(index, 1);
+      recipe.rellenoCBRCId = safe(recipe.rellenos?.[0]?.cbrcId);
+      recipe.rellenoQty = toNumber(recipe.rellenos?.[0]?.qty);
+      recipe.coberturaCBRCId = safe(recipe.coberturas?.[0]?.cbrcId);
+      recipe.coberturaQty = toNumber(recipe.coberturas?.[0]?.qty);
       saveAll(true);
       renderRecipeEditor();
-      showToast("Ingrediente eliminado ✅");
+      showToast("Elemento eliminado ✅");
       return;
     }
 
@@ -1347,10 +1545,15 @@ function bindCommonEvents() {
         return;
       }
       const recipe = getSelectedRecipe();
+      if (!recipe || !Array.isArray(recipe[section])) return;
       recipe[section].splice(index, 1);
+      recipe.rellenoCBRCId = safe(recipe.rellenos?.[0]?.cbrcId);
+      recipe.rellenoQty = toNumber(recipe.rellenos?.[0]?.qty);
+      recipe.coberturaCBRCId = safe(recipe.coberturas?.[0]?.cbrcId);
+      recipe.coberturaQty = toNumber(recipe.coberturas?.[0]?.qty);
       saveAll(true);
       renderRecipeEditor();
-      showToast("Ingrediente eliminado ✅");
+      showToast("Elemento eliminado ✅");
       return;
     }
 
@@ -1372,6 +1575,18 @@ function bindCommonEvents() {
       renderCBRCEditor();
       return;
     }
+
+    const recipeAddonField = e.target.closest('[data-recipe-cbrc-section][data-recipe-cbrc-field="qty"]');
+    if (recipeAddonField) {
+      updateRecipeAddonField(
+        recipeAddonField.dataset.recipeCbrcSection,
+        toNumber(recipeAddonField.dataset.recipeCbrcIndex),
+        recipeAddonField.dataset.recipeCbrcField,
+        recipeAddonField.value
+      );
+      return;
+    }
+
     const recipeRow = e.target.closest("[data-recipe-row-section]");
     if (recipeRow) {
       const recipe = getSelectedRecipe();
@@ -1382,6 +1597,7 @@ function bindCommonEvents() {
       renderRecipeEditor();
       return;
     }
+
     const mobileRow = e.target.closest("[data-mobile-section]");
     if (mobileRow) {
       const section = mobileRow.dataset.mobileSection;
@@ -1398,6 +1614,18 @@ function bindCommonEvents() {
       saveAll(true);
       renderRecipeEditor();
       return;
+    }
+  });
+
+  document.addEventListener("change", (e) => {
+    const recipeAddonField = e.target.closest('[data-recipe-cbrc-section][data-recipe-cbrc-field="cbrcId"]');
+    if (recipeAddonField) {
+      updateRecipeAddonField(
+        recipeAddonField.dataset.recipeCbrcSection,
+        toNumber(recipeAddonField.dataset.recipeCbrcIndex),
+        recipeAddonField.dataset.recipeCbrcField,
+        recipeAddonField.value
+      );
     }
   });
 }
@@ -1543,18 +1771,18 @@ function bindRecetasPage() {
       requestDelete("recipe", item.id, item.name);
     });
   }
-  ["#recipeName", "#recipeSize", "#recipeServings", "#recipeLabor", "#recipeDelivery", "#recipeMargin", "#recipeNotes", "#recipeRellenoQty", "#recipeCoberturaQty", "#manualTopperPrice"].forEach((selector) => {
+  ["#recipeName", "#recipeSize", "#recipeServings", "#recipeLabor", "#recipeDelivery", "#recipeMargin", "#recipeNotes", "#manualTopperPrice"].forEach((selector) => {
     const el = $(selector);
     if (el) el.addEventListener("input", updateSelectedRecipeFromFields);
   });
   const recipeCategory = $("#recipeCategory");
   if (recipeCategory) recipeCategory.addEventListener("change", updateSelectedRecipeFromFields);
-  const recipeRellenoCBRC = $("#recipeRellenoCBRC");
-  if (recipeRellenoCBRC) recipeRellenoCBRC.addEventListener("change", updateSelectedRecipeFromFields);
-  const recipeCoberturaCBRC = $("#recipeCoberturaCBRC");
-  if (recipeCoberturaCBRC) recipeCoberturaCBRC.addEventListener("change", updateSelectedRecipeFromFields);
   const btnAddBaseToRecipe = $("#btnAddBaseToRecipe");
   if (btnAddBaseToRecipe) btnAddBaseToRecipe.addEventListener("click", () => openIngredientPicker("base"));
+  const btnAddRellenoToRecipe = $("#btnAddRellenoToRecipe");
+  if (btnAddRellenoToRecipe) btnAddRellenoToRecipe.addEventListener("click", () => addRecipeAddonRow("relleno"));
+  const btnAddCoberturaToRecipe = $("#btnAddCoberturaToRecipe");
+  if (btnAddCoberturaToRecipe) btnAddCoberturaToRecipe.addEventListener("click", () => addRecipeAddonRow("cobertura"));
   const btnAddDecorToRecipe = $("#btnAddDecorToRecipe");
   if (btnAddDecorToRecipe) btnAddDecorToRecipe.addEventListener("click", () => openIngredientPicker("decor"));
   const btnAddPresentToRecipe = $("#btnAddPresentToRecipe");
