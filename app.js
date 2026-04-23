@@ -1101,7 +1101,7 @@ function renderRecipeAddonRows(rows, tbodyId, cardsId, sectionName, type) {
           <td>
             <input type="number" min="0" step="0.01" value="${toNumber(row.qty)}" data-recipe-cbrc-section="${sectionName}" data-recipe-cbrc-index="${index}" data-recipe-cbrc-field="qty">
           </td>
-          <td>${money(calcRecipeAddonRowCost(row))}</td>
+          <td data-recipe-addon-cost="${sectionName}" data-recipe-addon-index="${index}">${money(calcRecipeAddonRowCost(row))}</td>
           <td><button class="iconBtn iconBtnDanger" type="button" data-remove-recipe-row-section="${sectionName}" data-remove-recipe-row-index="${index}">✕</button></td>
         `;
         tbody.appendChild(tr);
@@ -1139,7 +1139,7 @@ function renderRecipeAddonRows(rows, tbodyId, cardsId, sectionName, type) {
           <span>Cantidad usada</span>
           <input type="number" min="0" step="0.01" value="${toNumber(row.qty)}" data-recipe-cbrc-section="${sectionName}" data-recipe-cbrc-index="${index}" data-recipe-cbrc-field="qty">
         </div>
-        <div class="mobileRowMetaItem"><span>Costo</span>${money(calcRecipeAddonRowCost(row))}</div>
+        <div class="mobileRowMetaItem" data-recipe-addon-mobile-cost="${sectionName}" data-recipe-addon-index="${index}"><span>Costo</span>${money(calcRecipeAddonRowCost(row))}</div>
       </div>
       <div class="mobileRowActions">
         <button class="iconBtn iconBtnDanger" type="button" data-mobile-remove-section="${sectionName}" data-mobile-remove-index="${index}">Eliminar</button>
@@ -1147,6 +1147,39 @@ function renderRecipeAddonRows(rows, tbodyId, cardsId, sectionName, type) {
     `;
     cards.appendChild(card);
   });
+}
+
+function syncRecipeTotalsUI(recipe) {
+  const totals = calcRecipeTotals(recipe);
+
+  if ($("#recipeRellenoMeta")) {
+    $("#recipeRellenoMeta").textContent = recipe.rellenos.length
+      ? `${recipe.rellenos.length} relleno(s) añadido(s).`
+      : "No hay relleno seleccionado.";
+  }
+
+  if ($("#recipeCoberturaMeta")) {
+    $("#recipeCoberturaMeta").textContent = recipe.coberturas.length
+      ? `${recipe.coberturas.length} cobertura(s) añadida(s).`
+      : "No hay cobertura seleccionada.";
+  }
+
+  if ($("#recipeSubtotalBase")) $("#recipeSubtotalBase").textContent = money(totals.base);
+  if ($("#recipeSubtotalRelleno")) $("#recipeSubtotalRelleno").textContent = money(totals.relleno);
+  if ($("#recipeSubtotalCobertura")) $("#recipeSubtotalCobertura").textContent = money(totals.cobertura);
+  if ($("#recipeSubtotalDecor")) $("#recipeSubtotalDecor").textContent = money(totals.decor);
+  if ($("#recipeSubtotalPresent")) $("#recipeSubtotalPresent").textContent = money(totals.present);
+  if ($("#sumRecipeBase")) $("#sumRecipeBase").textContent = money(totals.base);
+  if ($("#sumRecipeRelleno")) $("#sumRecipeRelleno").textContent = money(totals.relleno);
+  if ($("#sumRecipeCobertura")) $("#sumRecipeCobertura").textContent = money(totals.cobertura);
+  if ($("#sumRecipeDecor")) $("#sumRecipeDecor").textContent = money(totals.decor);
+  if ($("#sumRecipePresent")) $("#sumRecipePresent").textContent = money(totals.present);
+  if ($("#sumRecipeMaterials")) $("#sumRecipeMaterials").textContent = money(totals.materials);
+  if ($("#sumRecipeLabor")) $("#sumRecipeLabor").textContent = money(totals.labor);
+  if ($("#sumRecipeDelivery")) $("#sumRecipeDelivery").textContent = money(totals.delivery);
+  if ($("#sumRecipeOriginal")) $("#sumRecipeOriginal").textContent = money(totals.original);
+  if ($("#sumRecipeFinal")) $("#sumRecipeFinal").textContent = money(totals.final);
+  if ($("#sumRecipePerServing")) $("#sumRecipePerServing").textContent = money(totals.perServing);
 }
 
 function renderRecipeEditor() {
@@ -1170,40 +1203,13 @@ function renderRecipeEditor() {
   if ($("#recipeCoberturaCBRC")) $("#recipeCoberturaCBRC").value = recipe.coberturas[0]?.cbrcId || "";
   if ($("#recipeCoberturaQty")) $("#recipeCoberturaQty").value = recipe.coberturas[0]?.qty || "";
 
-  if ($("#recipeRellenoMeta")) {
-    $("#recipeRellenoMeta").textContent = recipe.rellenos.length
-      ? `${recipe.rellenos.length} relleno(s) añadido(s).`
-      : "No hay relleno seleccionado.";
-  }
-  if ($("#recipeCoberturaMeta")) {
-    $("#recipeCoberturaMeta").textContent = recipe.coberturas.length
-      ? `${recipe.coberturas.length} cobertura(s) añadida(s).`
-      : "No hay cobertura seleccionada.";
-  }
-
   renderSimpleRecipeRows(recipe.baseRows, "recipeBaseBody", "baseRows", "recipeBaseCards");
   renderRecipeAddonRows(recipe.rellenos, "recipeRellenoBody", "recipeRellenoCards", "rellenos", "relleno");
   renderRecipeAddonRows(recipe.coberturas, "recipeCoberturaBody", "recipeCoberturaCards", "coberturas", "cobertura");
   renderSimpleRecipeRows(recipe.decorRows, "recipeDecorBody", "decorRows", "recipeDecorCards");
   renderSimpleRecipeRows(recipe.presentRows, "recipePresentBody", "presentRows", "recipePresentCards");
 
-  const totals = calcRecipeTotals(recipe);
-  if ($("#recipeSubtotalBase")) $("#recipeSubtotalBase").textContent = money(totals.base);
-  if ($("#recipeSubtotalRelleno")) $("#recipeSubtotalRelleno").textContent = money(totals.relleno);
-  if ($("#recipeSubtotalCobertura")) $("#recipeSubtotalCobertura").textContent = money(totals.cobertura);
-  if ($("#recipeSubtotalDecor")) $("#recipeSubtotalDecor").textContent = money(totals.decor);
-  if ($("#recipeSubtotalPresent")) $("#recipeSubtotalPresent").textContent = money(totals.present);
-  if ($("#sumRecipeBase")) $("#sumRecipeBase").textContent = money(totals.base);
-  if ($("#sumRecipeRelleno")) $("#sumRecipeRelleno").textContent = money(totals.relleno);
-  if ($("#sumRecipeCobertura")) $("#sumRecipeCobertura").textContent = money(totals.cobertura);
-  if ($("#sumRecipeDecor")) $("#sumRecipeDecor").textContent = money(totals.decor);
-  if ($("#sumRecipePresent")) $("#sumRecipePresent").textContent = money(totals.present);
-  if ($("#sumRecipeMaterials")) $("#sumRecipeMaterials").textContent = money(totals.materials);
-  if ($("#sumRecipeLabor")) $("#sumRecipeLabor").textContent = money(totals.labor);
-  if ($("#sumRecipeDelivery")) $("#sumRecipeDelivery").textContent = money(totals.delivery);
-  if ($("#sumRecipeOriginal")) $("#sumRecipeOriginal").textContent = money(totals.original);
-  if ($("#sumRecipeFinal")) $("#sumRecipeFinal").textContent = money(totals.final);
-  if ($("#sumRecipePerServing")) $("#sumRecipePerServing").textContent = money(totals.perServing);
+  syncRecipeTotalsUI(recipe);
   renderRecipeList();
 }
 
@@ -1271,20 +1277,50 @@ function addRecipeAddonRow(type) {
   showToast(type === "relleno" ? "Relleno añadido ✅" : "Cobertura añadida ✅");
 }
 
-function updateRecipeAddonField(section, index, field, value) {
+function syncRecipeAddonLiveUI(section, index) {
   const recipe = getSelectedRecipe();
   if (!recipe || !Array.isArray(recipe[section]) || !recipe[section][index]) return;
+
+  const row = recipe[section][index];
+  const cost = calcRecipeAddonRowCost(row);
+
+  document
+    .querySelectorAll(`[data-recipe-addon-cost="${section}"][data-recipe-addon-index="${index}"]`)
+    .forEach((el) => {
+      el.textContent = money(cost);
+    });
+
+  document
+    .querySelectorAll(`[data-recipe-addon-mobile-cost="${section}"][data-recipe-addon-index="${index}"]`)
+    .forEach((el) => {
+      el.innerHTML = `<span>Costo</span>${money(cost)}`;
+    });
+
+  syncRecipeTotalsUI(recipe);
+}
+
+function updateRecipeAddonField(section, index, field, value, shouldRender = true) {
+  const recipe = getSelectedRecipe();
+  if (!recipe || !Array.isArray(recipe[section]) || !recipe[section][index]) return;
+
   if (field === "qty") {
     recipe[section][index].qty = toNumber(value);
   } else {
     recipe[section][index][field] = safe(value);
   }
+
   recipe.rellenoCBRCId = safe(recipe.rellenos[0]?.cbrcId);
   recipe.rellenoQty = toNumber(recipe.rellenos[0]?.qty);
   recipe.coberturaCBRCId = safe(recipe.coberturas[0]?.cbrcId);
   recipe.coberturaQty = toNumber(recipe.coberturas[0]?.qty);
+
   saveAll(true);
-  renderRecipeEditor();
+
+  if (shouldRender) {
+    renderRecipeEditor();
+  } else {
+    syncRecipeAddonLiveUI(section, index);
+  }
 }
 
 function openIngredientPicker(context) {
@@ -1582,7 +1618,8 @@ function bindCommonEvents() {
         recipeAddonField.dataset.recipeCbrcSection,
         toNumber(recipeAddonField.dataset.recipeCbrcIndex),
         recipeAddonField.dataset.recipeCbrcField,
-        recipeAddonField.value
+        recipeAddonField.value,
+        false
       );
       return;
     }
@@ -1624,7 +1661,8 @@ function bindCommonEvents() {
         recipeAddonField.dataset.recipeCbrcSection,
         toNumber(recipeAddonField.dataset.recipeCbrcIndex),
         recipeAddonField.dataset.recipeCbrcField,
-        recipeAddonField.value
+        recipeAddonField.value,
+        true
       );
     }
   });
