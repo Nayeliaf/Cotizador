@@ -1,4 +1,4 @@
-const CACHE_NAME = "essencia-cache-v2";
+const CACHE_NAME = "essencia-cache-v3";
 const OFFLINE_URL = "./index.html";
 
 const URLS_TO_CACHE = [
@@ -20,7 +20,7 @@ self.addEventListener("install", (event) => {
     caches.open(CACHE_NAME).then(async (cache) => {
       for (const url of URLS_TO_CACHE) {
         try {
-          await cache.add(url);
+          await cache.add(new Request(url, { cache: "reload" }));
         } catch (error) {
           console.error("No se pudo cachear:", url, error);
         }
@@ -44,6 +44,38 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+async function networkFirst(request) {
+  try {
+    const networkResponse = await fetch(request, { cache: "no-store" });
+
+    if (networkResponse && networkResponse.ok) {
+      const cache = await caches.open(CACHE_NAME);
+      cache.put(request, networkResponse.clone());
+    }
+
+    return networkResponse;
+  } catch (error) {
+    const cachedResponse = await caches.match(request);
+    return cachedResponse || caches.match(OFFLINE_URL);
+  }
+}
+
+async function cacheFirst(request) {
+  const cachedResponse = await caches.match(request);
+  if (cachedResponse) return cachedResponse;
+
+  try {
+    const networkResponse = await fetch(request);
+    if (networkResponse && networkResponse.ok) {
+      const cache = await caches.open(CACHE_NAME);
+      cache.put(request, networkResponse.clone());
+    }
+    return networkResponse;
+  } catch (error) {
+    return caches.match(OFFLINE_URL);
+  }
+}
+
 self.addEventListener("fetch", (event) => {
   const request = event.request;
 
@@ -53,37 +85,22 @@ self.addEventListener("fetch", (event) => {
 
   if (url.origin !== location.origin) return;
 
-  if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseClone);
-          });
-          return response;
-        })
-        .catch(async () => {
-          const cachedPage = await caches.match(request);
-          return cachedPage || caches.match(OFFLINE_URL);
-        })
-    );
+  const isNavigation = request.mode === "navigate";
+
+  const isCriticalAsset =
+    request.destination === "script" ||
+    request.destination === "style" ||
+    request.destination === "document" ||
+    request.destination === "manifest" ||
+    url.pathname.endsWith(".js") ||
+    url.pathname.endsWith(".css") ||
+    url.pathname.endsWith(".html") ||
+    url.pathname.endsWith(".json");
+
+  if (isNavigation || isCriticalAsset) {
+    event.respondWith(networkFirst(request));
     return;
   }
 
-  event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      if (cachedResponse) return cachedResponse;
-
-      return fetch(request)
-        .then((networkResponse) => {
-          const responseClone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseClone);
-          });
-          return networkResponse;
-        })
-        .catch(() => caches.match(OFFLINE_URL));
-    })
-  );
+  event.respondWith(cacheFirst(request));
 });
